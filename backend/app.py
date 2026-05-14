@@ -156,14 +156,19 @@ def verify_device_for_user(device_id, api_key, username):
     return device and device.get('api_key') == api_key and device.get('owner') == username
 
 
-# CYBERSECURITY: Security Headers Middleware
+# CYBERSECURITY: Security Headers & CORS Middleware
 @app.after_request
 def add_security_headers(response):
+    # Fix CORS preflight issue: Explicitly allow headers
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-API-KEY'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PUT, DELETE'
+    
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' cdnjs.cloudflare.com fonts.googleapis.com; font-src 'self' cdnjs.cloudflare.com fonts.gstatic.com; img-src 'self' data: https:;"
+    response.headers['Content-Security-Policy'] = "default-src 'self' http://*:* https://*:*; script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' cdnjs.cloudflare.com fonts.googleapis.com; font-src 'self' cdnjs.cloudflare.com fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' http://*:* https://*:* ws://*:* wss://*:*;"
     return response
 
 
