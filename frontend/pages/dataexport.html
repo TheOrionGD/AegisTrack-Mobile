@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTS // DATA EXPORT</title>`n    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="cyber-theme">
+    <div class="app-container">
+        <nav class="sidebar"></nav>
+        <main class="content-area">
+            <header class="main-header">
+                <h1>MTS <span class="sep">//</span> DATA EXPORT</h1>
+                <div class="status-pill"><span class="dot green pulse"></span> REPORT_READY</div>
+            </header>
+            <div class="dashboard-grid">
+                <section class="panel" style="grid-column: span 3;">
+                    <div class="panel-header"><i class="fa-solid fa-file-export"></i><h3>REPORT GENERATION CENTER</h3></div>
+                    <div class="panel-body">
+                        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                            <div class="panel" style="background: rgba(255,255,255,0.02)">
+                                <div class="stat-label">TELEMETRY_LOGS</div>
+                                <div class="stat-val">CSV / PDF</div>
+                                <button class="btn-primary" style="margin-top:15px; width:100%"><i class="fa-solid fa-download"></i> EXPORT</button>
+                            </div>
+                            <div class="panel" style="background: rgba(255,255,255,0.02)">
+                                <div class="stat-label">SESSION_HISTORY</div>
+                                <div class="stat-val">JSON / TXT</div>
+                                <button class="btn-primary" style="margin-top:15px; width:100%"><i class="fa-solid fa-download"></i> EXPORT</button>
+                            </div>
+                            <div class="panel" style="background: rgba(255,255,255,0.02)">
+                                <div class="stat-label">THREAT_METRICS</div>
+                                <div class="stat-val">XLSX</div>
+                                <button class="btn-primary" style="margin-top:15px; width:100%"><i class="fa-solid fa-download"></i> EXPORT</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <footer class="main-footer">
+                <div>DATA_INTEGRITY_VERIFIED</div>
+                <div id="utcTime">UTC --:--:--</div>
+            </footer>
+        </main>
+    </div>
+    <script src="../js/sidebar-loader.js"></script>
+    <script src="../js/dataexport.js"></script>
+</body>
+</html>

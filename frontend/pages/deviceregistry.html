@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTS // DEVICE REGISTRY</title>`n    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="cyber-theme">
+    <div class="app-container">
+        <nav class="sidebar"></nav>
+        <main class="content-area">
+            <header class="main-header">
+                <h1>MTS <span class="sep">//</span> DEVICE REGISTRY</h1>
+                <div class="status-pill"><span class="dot green pulse"></span> REGISTRY_ONLINE</div>
+            </header>
+            <div class="dashboard-grid">
+                <!-- SEARCH & FILTER -->
+                <section class="panel" style="grid-column: span 3;">
+                    <div class="panel-header"><i class="fa-solid fa-magnifying-glass"></i><h3>REGISTRY SEARCH</h3></div>
+                    <div class="panel-body">
+                        <div class="input-with-icon"><i class="fa-solid fa-search"></i><input type="text" id="deviceSearch" placeholder="SEARCH_BY_NODE_UID_OR_OPERATOR"></div>
+                    </div>
+                </section>
+                <!-- DEVICE CARDS -->
+                <section class="panel" style="grid-column: span 3;">
+                    <div class="panel-header"><i class="fa-solid fa-list-ul"></i><h3>CONNECTED NODES</h3></div>
+                    <div class="panel-body">
+                        <div id="deviceContainer" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                            <!-- Dynamically generated -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <footer class="main-footer">
+                <div>HARDWARE_SYNC_COMPLETE</div>
+                <div id="utcTime">UTC --:--:--</div>
+            </footer>
+        </main>
+    </div>
+    <script src="../js/sidebar-loader.js"></script>
+    <script src="../js/deviceregistry.js"></script>
+</body>
+</html>

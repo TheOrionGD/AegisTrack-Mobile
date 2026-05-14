@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTS // THREAT SCANNER</title>`n    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .radar {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-red);
+            position: relative;
+            margin: 20px auto;
+            background: radial-gradient(circle, rgba(255, 95, 95, 0.1) 0%, transparent 70%);
+            overflow: hidden;
+        }
+        .radar-sweep {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 50%; height: 2px;
+            background: linear-gradient(90deg, var(--accent-red), transparent);
+            transform-origin: left center;
+            animation: sweep 4s linear infinite;
+        }
+        @keyframes sweep {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="cyber-theme">
+    <div class="app-container">
+        <nav class="sidebar"></nav>
+        <main class="content-area">
+            <header class="main-header">
+                <h1>MTS <span class="sep">//</span> THREAT SCANNER</h1>
+                <div class="status-pill" style="border-color:var(--accent-red); color:var(--accent-red); background:rgba(255,95,95,0.1)">
+                    <span class="dot pulse" style="background:var(--accent-red); box-shadow: 0 0 8px var(--accent-red)"></span> SCAN_ACTIVE
+                </div>
+            </header>
+            <div class="dashboard-grid">
+                <section class="panel centered">
+                    <div class="panel-header"><i class="fa-solid fa-radar"></i><h3>SENTINEL SCAN</h3></div>
+                    <div class="panel-body">
+                        <div class="radar"><div class="radar-sweep"></div></div>
+                        <button id="scanBtn" class="btn-danger" style="width:100%">INITIATE DEEP SCAN</button>
+                    </div>
+                </section>
+                <section class="panel" style="grid-column: span 2;">
+                    <div class="panel-header"><i class="fa-solid fa-shield-virus"></i><h3>INTRUSION LOGS</h3></div>
+                    <div class="panel-body">
+                        <div id="scanLog" class="log-preview" style="height: 250px; overflow-y: auto; color: var(--accent-red); border-color: var(--accent-red); background: rgba(255,95,95,0.05);">
+                            <div class="log-entry">[SYS] THREAT_MATRIX_IDLE</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <footer class="main-footer">
+                <div>THREAT_SCAN_NODE_04_STABLE</div>
+                <div id="utcTime">UTC --:--:--</div>
+            </footer>
+        </main>
+    </div>
+    <script src="../js/sidebar-loader.js"></script>
+    <script src="../js/threatscanner.js"></script>
+</body>
+</html>

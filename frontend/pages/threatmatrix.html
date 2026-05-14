@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTS // THREAT MATRIX</title>`n    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="cyber-theme">
+    <div class="app-container">
+        <nav class="sidebar"></nav>
+        <main class="content-area">
+            <header class="main-header">
+                <h1>MTS <span class="sep">//</span> THREAT MATRIX</h1>
+                <div class="status-pill" style="border-color:var(--accent-orange); color:var(--accent-orange); background:rgba(255,179,71,0.1)">
+                    <span class="dot pulse" style="background:var(--accent-orange); box-shadow: 0 0 8px var(--accent-orange)"></span> MONITORING_INTERCEPTS
+                </div>
+            </header>
+            <div class="dashboard-grid">
+                <section class="panel" style="grid-column: span 3;">
+                    <div class="panel-header"><i class="fa-solid fa-list-check"></i><h3>INCIDENT FEED</h3></div>
+                    <div class="panel-body">
+                        <div id="incidentFeed" style="height: 400px; overflow-y: auto; font-family: var(--font-mono); font-size: 0.75rem;">
+                            <div class="log-entry" style="color:var(--accent-orange)">[09:12:44] WARN: NODE_BETA_UNSTABLE_SIGNAL</div>
+                            <div class="log-entry" style="color:var(--accent-cyan)">[09:15:01] INFO: SENTINEL_PERIODIC_SCAN_CLEAN</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <footer class="main-footer">
+                <div>THREAT_VECTORS_ZERO</div>
+                <div id="utcTime">UTC --:--:--</div>
+            </footer>
+        </main>
+    </div>
+    <script src="../js/sidebar-loader.js"></script>
+    <script src="../js/threatmatrix.js"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTS // HARDWARE NEXUS</title>`n    <link rel="icon" type="image/png" href="../favicon.png">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="cyber-theme">
+    <div class="app-container">
+        <nav class="sidebar"></nav>
+        <main class="content-area">
+            <header class="main-header">
+                <h1>MTS <span class="sep">//</span> HARDWARE NEXUS</h1>
+                <div class="status-pill"><span class="dot green pulse"></span> NODES_INITIALIZED</div>
+            </header>
+            <div class="dashboard-grid">
+                <section class="panel">
+                    <div class="panel-header"><i class="fa-solid fa-link"></i><h3>NODE INITIALIZATION</h3></div>
+                    <div class="panel-body">
+                        <div class="input-wrap"><label>DEVICE ID</label><div class="input-with-icon"><i class="fa-solid fa-microchip"></i><input type="text" id="deviceId" placeholder="NODE_UID"></div></div>
+                        <button id="initBtn" class="btn-primary" style="width:100%; margin-top:10px">INITIALIZE LINK</button>
+                    </div>
+                </section>
+                <section class="panel" style="grid-column: span 2;">
+                    <div class="panel-header"><i class="fa-solid fa-key"></i><h3>ENCRYPTION MATRIX</h3></div>
+                    <div class="panel-body">
+                        <div id="keyDisplay" class="stat-val" style="font-size: 0.8rem; background: #000; padding: 15px; border-radius: 4px; border: 1px dashed var(--accent-cyan);">NULL_VOID</div>
+                        <div class="log-preview" style="margin-top:15px">Security keys are rotated every 24 hours via quantum-safe entropy.</div>
+                    </div>
+                </section>
+            </div>
+            <footer class="main-footer">
+                <div>HARDWARE_ENCRYPTION_ACTIVE</div>
+                <div id="utcTime">UTC --:--:--</div>
+            </footer>
+        </main>
+    </div>
+    <script src="../js/sidebar-loader.js"></script>
+    <script src="../js/hardwarenexus.js"></script>
+</body>
+</html>

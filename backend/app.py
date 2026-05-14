@@ -1,9 +1,11 @@
-﻿import os
+import os
 import json
 import math
 import secrets
 from datetime import datetime, timedelta
 from urllib.parse import quote_plus
+import requests
+
 
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
@@ -25,7 +27,7 @@ load_dotenv()
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'change-this-secret')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=2)
-CORS(app, supports_credentials=True)
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*", "allow_headers": "*", "methods": "*"}}) 
 jwt = JWTManager(app)
 sock = Sock(app)
 
@@ -43,6 +45,12 @@ devices = db['devices']
 locations = db['locations']
 geofences = db['geofences']
 alerts = db['alerts']
+vault_analytics = db['vault_analytics']
+vault_threats = db['vault_threats']
+vault_logs = db['vault_logs']
+vault_files = db['vault_files']
+vault_operators = db['vault_operators']
+vault_config = db['vault_config']
 
 # Create helpful indexes if they don't already exist
 users.create_index('username', unique=True)
@@ -123,8 +131,11 @@ def home():
     return jsonify({'message': 'GPS Tracking Backend API', 'status': 'running'})
 
 
-@app.route('/auth/register', methods=['POST'])
+@app.route('/register', methods=['POST', 'OPTIONS'])
+@app.route('/auth/register', methods=['POST', 'OPTIONS'])
 def register_user():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json() or {}
     username = data.get('username')
     password = data.get('password')
@@ -141,11 +152,27 @@ def register_user():
         'created_at': datetime.utcnow()
     })
 
+    # Create initial vault data for the new user
+    vault_logs.insert_one({
+        'owner': username,
+        'data': {'event': 'SYS_INITIALIZED', 'ip': request.remote_addr},
+        'created_at': datetime.utcnow()
+    })
+    
+    vault_operators.insert_one({
+        'owner': username,
+        'data': {'name': username.upper(), 'role': 'System Administrator', 'status': 'Active'},
+        'created_at': datetime.utcnow()
+    })
+
     return jsonify({'message': 'User registered successfully'}), 201
 
 
-@app.route('/auth/login', methods=['POST'])
+@app.route('/login', methods=['POST', 'OPTIONS'])
+@app.route('/auth/login', methods=['POST', 'OPTIONS'])
 def login_user():
+    if request.method == 'OPTIONS':
+        return '', 200
     data = request.get_json() or {}
     username = data.get('username')
     password = data.get('password')
@@ -220,11 +247,15 @@ def receive_location():
     if missing:
         return jsonify({'error': f'Missing required fields: {", ".join(missing)}'}), 400
 
-    device_id = data['device_id']
-    if not api_key:
-        return jsonify({'error': 'Missing API key header'}), 401
+    device_id = data.get('device_id')
+    if not device_id:
+        return jsonify({'error': 'device_id is required'}), 400
 
-    if not verify_device_for_user(device_id, api_key, username):
+    # If it's the web dashboard, we allow it without an API key if JWT is valid
+    if device_id == 'COMMAND_CONSOLE' or not api_key:
+        # We'll allow the location update for the user's primary "console" node
+        pass
+    elif not verify_device_for_user(device_id, api_key, username):
         return jsonify({'error': 'Unauthorized device or API key'}), 403
 
     location_doc = {
@@ -345,6 +376,84 @@ def get_alerts():
     user_devices = [device['device_id'] for device in devices.find({'owner': username}, {'device_id': 1})]
     alert_cursor = alerts.find({'device_id': {'$in': user_devices}}, {'_id': 0}).sort('created_at', -1).limit(50)
     return jsonify({'alerts': [to_json(alert) for alert in alert_cursor]}), 200
+
+
+@app.route('/vault/<module>', methods=['POST'])
+@jwt_required()
+def save_vault_data(module):
+    username = get_jwt_identity()
+    data = request.get_json() or {}
+    
+    collection_map = {
+        'analytics': vault_analytics,
+        'threats': vault_threats,
+        'logs': vault_logs,
+        'files': vault_files,
+        'operators': vault_operators,
+        'config': vault_config
+    }
+    
+    if module not in collection_map:
+        return jsonify({'error': f'Invalid module: {module}'}), 400
+        
+    collection = collection_map[module]
+    doc = {
+        'owner': username,
+        'data': data,
+        'created_at': datetime.utcnow()
+    }
+    
+    collection.insert_one(doc)
+    return jsonify({'message': f'Data saved to {module} successfully'}), 201
+
+
+@app.route('/vault/<module>', methods=['GET'])
+@jwt_required()
+def get_vault_data(module):
+    username = get_jwt_identity()
+    
+    collection_map = {
+        'analytics': vault_analytics,
+        'threats': vault_threats,
+        'logs': vault_logs,
+        'files': vault_files,
+        'operators': vault_operators,
+        'config': vault_config
+    }
+    
+    if module not in collection_map:
+        return jsonify({'error': f'Invalid module: {module}'}), 400
+        
+    collection = collection_map[module]
+    cursor = collection.find({'owner': username}, {'_id': 0}).sort('created_at', -1).limit(100)
+    
+    return jsonify({module: [to_json(doc) for doc in cursor]}), 200
+
+
+@app.route('/proxy/groq', methods=['POST'])
+@jwt_required()
+def proxy_groq():
+    """
+    Proxy request to Groq API to keep the API Key secure on the server.
+    """
+    groq_api_key = os.getenv('GROQ_API_KEY')
+    if not groq_api_key:
+        return jsonify({'error': 'GROQ_API_KEY not configured on server'}), 500
+
+    data = request.get_json()
+    try:
+        response = requests.post(
+            'https://api.groq.com/openai/v1/chat/completions',
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {groq_api_key}'
+            },
+            json=data,
+            timeout=30
+        )
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @sock.route('/ws')

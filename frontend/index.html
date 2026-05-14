@@ -2,98 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPS Tracker</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>MTS // LOADING KERNEL</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <style>
+        body { background: #05070a; color: #00f2ff; font-family: monospace; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .loader { letter-spacing: 5px; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+    <script>
+        setTimeout(() => {
+            window.location.href = 'pages/dashboard.html';
+        }, 1500);
+    </script>
 </head>
 <body>
-    <div class="container">
-        <h1>Real-Time GPS Tracker</h1>
-
-        <div class="auth-section">
-            <h2>Login / Register</h2>
-            <div class="input-grid">
-                <div>
-                    <label for="username">Username</label>
-                    <input type="text" id="username" placeholder="Enter username">
-                </div>
-                <div>
-                    <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="Enter password">
-                </div>
-            </div>
-            <div class="controls">
-                <button id="loginBtn">Login</button>
-                <button id="registerBtn">Register</button>
-            </div>
-            <p class="info-text" id="authStatus">Please login or register to enable secure tracking.</p>
-            <p class="info-text safe-use-note">This service is intended for family safety, lost device recovery, registered device tracking, and fleet monitoring only.</p>
-        </div>
-
-        <div class="device-section">
-            <h2>Device Management</h2>
-            <div class="input-section">
-                <label for="deviceId">Device ID / Registered Identifier:</label>
-                <input type="text" id="deviceId" placeholder="Enter device ID or registered identifier">
-            </div>
-            <div class="controls">
-                <button id="registerDeviceBtn">Register Device</button>
-            </div>
-            <p class="info-text">API Key: <span id="apiKeyDisplay">not registered</span></p>
-        </div>
-
-        <div class="consent-section">
-            <p class="info-text">By enabling tracking, you agree to share your live location for authorized monitoring.</p>
-            <button id="requestPermissionBtn">Grant Location Access</button>
-            <p id="permissionStatus" class="info-text">Permission: Not Granted</p>
-        </div>
-
-        <div class="controls">
-            <button id="startBtn">Start Tracking</button>
-            <button id="stopBtn" disabled>Stop Tracking</button>
-            <button id="revokeBtn" type="button" class="revoke-btn">Revoke Permission</button>
-        </div>
-
-        <div class="status">
-            <p id="status">Status: Offline</p>
-            <p id="onlineStatus">Online: <span id="onlineIndicator">No</span></p>
-        </div>
-
-        <div class="location-display">
-            <h2>Current Location</h2>
-            <div class="location-info">
-                <p><strong>Latitude:</strong> <span id="latitude">--</span></p>
-                <p><strong>Longitude:</strong> <span id="longitude">--</span></p>
-                <p><strong>Accuracy:</strong> <span id="accuracy">--</span> meters</p>
-                <p><strong>Timestamp:</strong> <span id="timestamp">--</span></p>
-            </div>
-        </div>
-
-        <div class="geofence-section">
-            <h2>Geofence</h2>
-            <div class="input-grid">
-                <div>
-                    <label for="geoLat">Center Latitude</label>
-                    <input type="text" id="geoLat" placeholder="e.g. 37.7749">
-                </div>
-                <div>
-                    <label for="geoLng">Center Longitude</label>
-                    <input type="text" id="geoLng" placeholder="e.g. -122.4194">
-                </div>
-            </div>
-            <div class="input-section">
-                <label for="geoRadius">Radius (meters)</label>
-                <input type="number" id="geoRadius" placeholder="e.g. 100">
-            </div>
-            <div class="controls">
-                <button id="setGeofenceBtn">Set Geofence</button>
-            </div>
-            <p class="info-text" id="geofenceStatus">No geofence configured.</p>
-        </div>
-
-        <div class="error-display" id="errorDisplay"></div>
-    </div>
-
-    <script src="script.js"></script>
+    <div class="loader">INITIALIZING_MTS_KERNEL_V2.5.0...</div>
 </body>
 </html>

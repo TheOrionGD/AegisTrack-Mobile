@@ -8,21 +8,21 @@ let apiKey = '';
 let socket = null;
 
 const BACKEND_URL = 'http://10.171.58.245:5000';
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const deviceIdInput = document.getElementById('deviceId');
-const usernameInput = document.getElementById('username');
-const passwordInput = document.getElementById('password');
 const loginBtn = document.getElementById('loginBtn');
 const registerBtn = document.getElementById('registerBtn');
 const registerDeviceBtn = document.getElementById('registerDeviceBtn');
+const syncLocationBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const usernameInput = document.getElementById('username');
+const passwordInput = document.getElementById('password');
+const deviceIdInput = document.getElementById('deviceId');
 const statusEl = document.getElementById('status');
 const onlineIndicator = document.getElementById('onlineIndicator');
 const latitudeEl = document.getElementById('latitude');
 const longitudeEl = document.getElementById('longitude');
 const accuracyEl = document.getElementById('accuracy');
 const timestampEl = document.getElementById('timestamp');
-const errorDisplay = document.getElementById('errorDisplay');
+const activityLog = document.getElementById('activityLog');
 const authStatus = document.getElementById('authStatus');
 const apiKeyDisplay = document.getElementById('apiKeyDisplay');
 const geofenceStatus = document.getElementById('geofenceStatus');
@@ -33,6 +33,11 @@ const setGeofenceBtn = document.getElementById('setGeofenceBtn');
 const requestPermissionBtn = document.getElementById('requestPermissionBtn');
 const permissionStatus = document.getElementById('permissionStatus');
 const revokeBtn = document.getElementById('revokeBtn');
+const copyTokenBtn = document.getElementById('copyTokenBtn');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const aiResponseEl = document.getElementById('aiResponse');
+const sidebarLinks = document.querySelectorAll('.side-links a, .side-footer a');
+const currentSectionTitle = document.getElementById('currentSectionTitle');
 
 // Check if geolocation is supported
 if (!navigator.geolocation) {
@@ -48,6 +53,21 @@ registerDeviceBtn.addEventListener('click', registerDevice);
 setGeofenceBtn.addEventListener('click', setGeofence);
 revokeBtn.addEventListener('click', revokeTrackingPermission);
 requestPermissionBtn.addEventListener('click', requestLocationPermission);
+syncLocationBtn.addEventListener('click', fetchManualLocation);
+copyTokenBtn.addEventListener('click', copyTokenToClipboard);
+analyzeBtn.addEventListener('click', runAIAnalysis);
+
+// Sidebar Navigation Logic
+sidebarLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+        e.preventDefault();
+        sidebarLinks.forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+        const title = link.getAttribute('title');
+        currentSectionTitle.innerHTML = `MTS <span class="sep">//</span> ${title.toUpperCase()}`;
+        logActivity(`NAVIGATING_TO_${title.replace(' ', '_').toUpperCase()}`, 'INFO');
+    });
+});
 
 function loginUser() {
     const username = usernameInput.value.trim();
@@ -67,14 +87,47 @@ function loginUser() {
         .then(data => {
             if (data.access_token) {
                 accessToken = data.access_token;
-                authStatus.textContent = 'Logged in successfully. Tracking is only permitted for authorized registered devices.';
-                clearError();
+                authStatus.textContent = 'Session Active. Tracking permitted.';
+                copyTokenBtn.style.display = 'inline-block';
+                logActivity(`OPERATOR_${username.toUpperCase()} ACCESS_GRANTED`, 'SUCCESS');
                 connectSocket();
             } else {
                 showError(data.error || 'Login failed.');
             }
         })
         .catch(error => showError(`Login error: ${error.message}`));
+}
+
+function copyTokenToClipboard() {
+    if (!accessToken) return;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(accessToken).then(() => {
+            notifyCopy();
+        }).catch(() => fallbackCopy(accessToken));
+    } else {
+        fallbackCopy(accessToken);
+    }
+}
+
+function fallbackCopy(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        notifyCopy();
+    } catch (err) {
+        showError('Manual Copy Required: ' + text);
+    }
+    document.body.removeChild(textArea);
+}
+
+function notifyCopy() {
+    const originalText = copyTokenBtn.textContent;
+    copyTokenBtn.textContent = 'TOKEN COPIED!';
+    setTimeout(() => copyTokenBtn.textContent = originalText, 2000);
 }
 
 function registerUser() {
@@ -127,7 +180,7 @@ function registerDevice() {
             if (data.api_key) {
                 apiKey = data.api_key;
                 apiKeyDisplay.textContent = apiKey;
-                clearError();
+                logActivity(`HARDWARE_LINK_${deviceId.toUpperCase()}_INITIALIZED`, 'SUCCESS');
             } else {
                 showError(data.error || 'Device registration failed.');
             }
@@ -152,7 +205,7 @@ function connectSocket() {
         statusEl.textContent = 'Status: Live connection established';
         onlineIndicator.textContent = 'Yes';
         onlineIndicator.classList.add('online');
-        clearError();
+        logActivity('LIVE_TELEMETRY_LINK_ESTABLISHED', 'SOCKET');
     };
 
     socket.onmessage = event => {
@@ -185,62 +238,31 @@ function handleSocketLocationUpdate(payload) {
     }
 }
 
-function startTracking() {
-    deviceId = deviceIdInput.value.trim();
-    if (!deviceId) {
-        showError('Please enter a device ID or registered identifier.');
+function fetchManualLocation() {
+    if (!apiKey) {
+        showError('Please register or link a device first.');
         return;
     }
 
     if (permissionStatus.textContent !== 'Permission: Granted') {
-        showError('Please grant location access before starting tracking.');
+        showError('Please grant location access before fetching location.');
         return;
     }
 
-    if (!accessToken) {
-        showError('Please login and register your device.');
-        return;
-    }
-
-    if (!apiKey) {
-        showError('Please register your device to obtain an API key.');
-        return;
-    }
-
-    if (!navigator.onLine) {
-        showError('No internet connection. Please check your network.');
-        return;
-    }
-
+    statusEl.textContent = 'LOG: Requesting fresh telemetry...';
+    logActivity('GPS_SIGNAL_REQUEST_SENT', 'SYNC');
     navigator.geolocation.getCurrentPosition(
-        position => {
-            isTracking = true;
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            statusEl.textContent = 'Status: Tracking Active';
-            onlineIndicator.textContent = 'Yes';
-            onlineIndicator.classList.add('online');
-
-            updateLocation(position);
-
-            trackingInterval = setInterval(() => {
-                if (navigator.onLine) {
-                    navigator.geolocation.getCurrentPosition(
-                        updateLocation,
-                        handleLocationError,
-                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                    );
-                } else {
-                    showError('Lost internet connection.');
-                    stopTracking();
-                }
-            }, 10000);
-        },
+        updateLocation,
         handleLocationError,
-        { enableHighAccuracy: true, timeout: 10000 }
+        { 
+            enableHighAccuracy: true, 
+            timeout: 15000, 
+            maximumAge: 0 
+        }
     );
 }
 
+function startTracking() {}
 function stopTracking() {
     isTracking = false;
     clearInterval(trackingInterval);
@@ -265,6 +287,9 @@ function requestLocationPermission() {
         return;
     }
 
+    permissionStatus.textContent = 'STATUS: REQUESTING...';
+    permissionStatus.style.color = 'orange';
+
     navigator.geolocation.getCurrentPosition(
         () => {
             permissionStatus.textContent = 'Permission: Granted';
@@ -272,10 +297,16 @@ function requestLocationPermission() {
             clearError();
         },
         error => {
-            permissionStatus.textContent = 'Permission: Denied';
+            let msg = 'Error';
+            if (error.code === error.PERMISSION_DENIED) msg = 'Denied';
+            else if (error.code === error.POSITION_UNAVAILABLE) msg = 'Hardware Unavail';
+            else if (error.code === error.TIMEOUT) msg = 'Timed Out';
+            
+            permissionStatus.textContent = 'Permission: ' + msg;
             permissionStatus.style.color = 'red';
             handleLocationError(error);
-        }
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
     );
 }
 
@@ -314,7 +345,7 @@ async function sendLocationToBackend(lat, lng, acc, ts) {
             throw new Error(errorBody.error || `HTTP error ${response.status}`);
         }
 
-        clearError();
+        logActivity('TELEMETRY_UPLINK_SUCCESS', 'DATA');
     } catch (error) {
         showError(`Failed to send location: ${error.message}`);
     }
@@ -383,14 +414,20 @@ function handleLocationError(error) {
     stopTracking();
 }
 
+function logActivity(message, type = 'INFO') {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    const time = new Date().toLocaleTimeString();
+    entry.innerHTML = `<span style="color: var(--text-secondary)">[${time}]</span> <span style="color: ${type === 'ERROR' ? 'var(--accent-red)' : 'var(--accent-cyan)'}">[${type}]</span> ${message}`;
+    activityLog.prepend(entry);
+}
+
 function showError(message) {
-    errorDisplay.textContent = message;
-    errorDisplay.style.display = 'block';
+    logActivity(message, 'ERROR');
 }
 
 function clearError() {
-    errorDisplay.textContent = '';
-    errorDisplay.style.display = 'none';
+    // Deprecated, we keep history now
 }
 
 window.addEventListener('online', () => {
@@ -405,5 +442,72 @@ window.addEventListener('offline', () => {
     onlineIndicator.classList.remove('online');
     if (isTracking) {
         showError('Lost internet connection. Tracking paused.');
+    }
+});
+// Update UTC Time in footer
+function updateUTCTime() {
+    const utcTimeEl = document.getElementById('utcTime');
+    if (utcTimeEl) {
+        const now = new Date();
+        const day = String(now.getUTCDate()).padStart(2, '0');
+        const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+        const year = now.getUTCFullYear();
+        const hours = String(now.getUTCHours()).padStart(2, '0');
+        const mins = String(now.getUTCMinutes()).padStart(2, '0');
+        const secs = String(now.getUTCSeconds()).padStart(2, '0');
+        utcTimeEl.innerHTML = `<i class="fa-regular fa-clock"></i> UTC ${day}/${month}/${year} ${hours}:${mins}:${secs}`;
+    }
+}
+setInterval(updateUTCTime, 1000);
+async function runAIAnalysis() {
+    const lat = latitudeEl.textContent;
+    const lng = longitudeEl.textContent;
+    const acc = accuracyEl.textContent;
+
+    if (lat === '--') {
+        showError('No telemetry data available for analysis.');
+        return;
+    }
+
+    aiResponseEl.textContent = 'NEURAL_SCAN_IN_PROGRESS...';
+    logActivity('AI_NEURAL_SCAN_INITIATED', 'AI');
+
+    try {
+        const response = await fetch(`${BACKEND_URL}/proxy/groq`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({
+                model: "mixtral-8x7b-32768",
+                messages: [{
+                    role: "system",
+                    content: "You are the MTS AI Analytics core. Provide a short, tactical, 2-sentence analysis of the current GPS telemetry. Use cyberpunk/military style."
+                }, {
+                    role: "user",
+                    content: `Current Telemetry: Lat ${lat}, Lng ${lng}, Accuracy ${acc}M. Status: Online.`
+                }],
+                temperature: 0.7,
+                max_tokens: 100
+            })
+        });
+
+        const data = await response.json();
+        const analysis = data.choices[0].message.content;
+        aiResponseEl.textContent = analysis;
+        logActivity('AI_SCAN_COMPLETE', 'SUCCESS');
+    } catch (error) {
+        aiResponseEl.textContent = 'NEURAL_LINK_FAILED. Check API Key or Connection.';
+        showError('AI Analysis failed: ' + error.message);
+    }
+}
+
+// Copy API Key Listener (Moved for consistency)
+document.querySelector('.key-display i').addEventListener('click', () => {
+    const key = document.getElementById('apiKeyDisplay').textContent;
+    if (key !== 'NULL_VOID') {
+        navigator.clipboard.writeText(key);
+        logActivity('ENCRYPTION_KEY_COPIED_TO_CLIPBOARD', 'SUCCESS');
     }
 });
