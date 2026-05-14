@@ -3,7 +3,7 @@ import json
 import math
 import secrets
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote_plus
 import requests
 
@@ -38,7 +38,7 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=2)
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=["1000 per day", "200 per hour"],  # general limit
     storage_uri="memory://"
 )
 
@@ -61,12 +61,7 @@ def get_vault_cipher():
 
 cipher = get_vault_cipher()
 
-MONGODB_URI = os.getenv('MONGODB_URI',
-    'mongodb://MTS:MTS@ac-eaefaxg-shard-00-00.mzv9tpk.mongodb.net:27017,'
-    'ac-eaefaxg-shard-00-01.mzv9tpk.mongodb.net:27017,'
-    'ac-eaefaxg-shard-00-02.mzv9tpk.mongodb.net:27017/'
-    '?ssl=true&replicaSet=atlas-w6r3kg-shard-0&authSource=admin&appName=MTS-NEW'
-)
+MONGODB_URI = os.getenv('MONGODB_URI')
 
 mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
 db = mongo_client['gps_tracking']
@@ -196,21 +191,21 @@ def register_user():
     users.insert_one({
         'username': username,
         'password': hash_password(password),
-        'created_at': datetime.utcnow()
+        'created_at': datetime.now(timezone.utc)
     })
 
     # CYBERSECURITY: Audit Log for Registration
     vault_logs.insert_one({
         'owner': username,
         'data': cipher.encrypt(json.dumps({'event': 'OPERATOR_PROVISIONED', 'ip': request.remote_addr}).encode()),
-        'created_at': datetime.utcnow(),
+        'created_at': datetime.now(timezone.utc),
         'encrypted': True
     })
     
     vault_operators.insert_one({
         'owner': username,
         'data': {'name': username.upper(), 'role': 'System Administrator', 'status': 'Active'},
-        'created_at': datetime.utcnow()
+        'created_at': datetime.now(timezone.utc)
     })
 
     return jsonify({'message': 'Operator profile established in secure registry'}), 201
@@ -235,7 +230,7 @@ def login_user():
         vault_logs.insert_one({
             'owner': 'SYSTEM',
             'data': cipher.encrypt(json.dumps({'event': 'AUTH_FAILURE', 'target': username, 'ip': request.remote_addr}).encode()),
-            'created_at': datetime.utcnow(),
+            'created_at': datetime.now(timezone.utc),
             'encrypted': True
         })
         return jsonify({'error': 'Invalid username or password'}), 401
@@ -247,7 +242,7 @@ def login_user():
     vault_logs.insert_one({
         'owner': username,
         'data': cipher.encrypt(json.dumps({'event': 'C2_ACCESS_GRANTED', 'ip': request.remote_addr}).encode()),
-        'created_at': datetime.utcnow(),
+        'created_at': datetime.now(timezone.utc),
         'encrypted': True
     })
 
@@ -279,7 +274,7 @@ def register_device():
         'device_id': device_id,
         'owner': username,
         'api_key': api_key,
-        'created_at': datetime.utcnow(),
+        'created_at': datetime.now(timezone.utc),
         'latitude': None,
         'longitude': None,
         'accuracy': None,
@@ -318,7 +313,7 @@ def receive_location():
         vault_logs.insert_one({
             'owner': username,
             'data': cipher.encrypt(json.dumps({'event': 'UNAUTHORIZED_NODE_INGEST', 'node': device_id, 'ip': request.remote_addr}).encode()),
-            'created_at': datetime.utcnow(),
+            'created_at': datetime.now(timezone.utc),
             'encrypted': True
         })
         return jsonify({'error': 'Unauthorized device or API key'}), 403
@@ -341,7 +336,7 @@ def receive_location():
                         'speed': round(dist/time_diff, 2),
                         'ip': request.remote_addr
                     }).encode()),
-                    'created_at': datetime.utcnow(),
+                    'created_at': datetime.now(timezone.utc),
                     'encrypted': True
                 })
                 broadcast('security_threat', {'type': 'IMPOSSIBLE_TRAVEL', 'node': device_id}, owner=username)
@@ -353,7 +348,7 @@ def receive_location():
         'longitude': float(data['longitude']),
         'accuracy': float(data['accuracy']),
         'timestamp': data['timestamp'],
-        'created_at': datetime.utcnow()
+        'created_at': datetime.now(timezone.utc)
     }
     locations.insert_one(location_doc)
 
@@ -362,7 +357,7 @@ def receive_location():
         'longitude': location_doc['longitude'],
         'accuracy': location_doc['accuracy'],
         'timestamp': location_doc['timestamp'],
-        'last_updated': datetime.utcnow()
+        'last_updated': datetime.now(timezone.utc)
     }
     devices.update_one({'device_id': device_id}, {'$set': latest_fields})
 
@@ -386,7 +381,7 @@ def receive_location():
                 'device_id': device_id,
                 'type': 'geofence_exit',
                 'message': f'Digital Perimeter Breach Detected ({round(distance,1)}m deviation)',
-                'created_at': datetime.utcnow()
+                'created_at': datetime.now(timezone.utc)
             })
         elif inside and not geofence.get('is_inside', True):
             geofences.update_one({'device_id': device_id}, {'$set': {'is_inside': True}})
@@ -405,9 +400,13 @@ def receive_location():
     return jsonify({'message': 'Telemetry packet ingested and verified', 'device_id': device_id}), 200
 
 
-@app.route('/location/<device_id>', methods=['GET'])
+@app.route('/location/<device_id>', methods=['GET', 'OPTIONS'])
 @jwt_required()
+@limiter.limit("2000 per hour")  # High limit: live dashboard polling
 def get_location(device_id):
+    # Guard: reject sentinel/placeholder IDs
+    if not device_id or device_id in ('none', 'null', 'undefined', 'NONE'):
+        return jsonify({'error': 'Invalid device_id'}), 400
     username = get_jwt_identity()
     device = devices.find_one({'device_id': device_id})
     if not device or device.get('owner') != username:
@@ -438,7 +437,7 @@ def set_geofence():
             'center_lng': float(data['center_lng']),
             'radius_meters': float(data['radius_meters']),
             'is_inside': True,
-            'created_at': datetime.utcnow()
+            'created_at': datetime.now(timezone.utc)
         }},
         upsert=True
     )
@@ -494,7 +493,7 @@ def save_vault_data(module):
         'owner': username,
         'data': encrypted_data,
         'encrypted': True,
-        'created_at': datetime.utcnow()
+        'created_at': datetime.now(timezone.utc)
     }
     
     collection.insert_one(doc)
@@ -567,7 +566,10 @@ def websocket(ws):
     token = request.args.get('token')
     username = user_from_token(token)
     if not username:
-        ws.send(json.dumps({'event': 'error', 'payload': {'message': 'Invalid or missing token'}}))
+        try:
+            ws.send(json.dumps({'event': 'error', 'payload': {'message': 'Invalid or missing token'}}))
+        except Exception:
+            pass
         return
 
     client_info = {'sock': ws, 'user': username}
@@ -575,15 +577,31 @@ def websocket(ws):
 
     try:
         while True:
-            message = ws.receive()
+            try:
+                message = ws.receive(timeout=30)
+            except Exception:
+                # Connection reset, timeout, or binary frame — clean disconnect
+                break
+
             if message is None:
                 break
+
+            # Ignore non-string frames (binary pings from browsers)
+            if not isinstance(message, str):
+                continue
+
             try:
                 incoming = json.loads(message)
                 if incoming.get('type') == 'ping':
-                    ws.send(json.dumps({'event': 'pong', 'payload': {'timestamp': datetime.utcnow().isoformat()}}))
-            except Exception:
+                    ws.send(json.dumps({
+                        'event': 'pong',
+                        'payload': {'timestamp': datetime.now(timezone.utc).isoformat()}
+                    }))
+            except (json.JSONDecodeError, Exception):
                 continue
+
+    except Exception:
+        pass  # Absorb any outer connection-level errors to prevent 500
     finally:
         if client_info in active_sockets:
             active_sockets.remove(client_info)
@@ -591,7 +609,7 @@ def websocket(ws):
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()}), 200
+    return jsonify({'status': 'healthy', 'timestamp': datetime.now(timezone.utc).isoformat()}), 200
 
 
 if __name__ == '__main__':

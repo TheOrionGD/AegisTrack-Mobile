@@ -6,6 +6,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginBtn = document.getElementById('loginBtn');
     const registerBtn = document.getElementById('registerBtn');
     const authStatus = document.getElementById('authStatus');
+    const copyTokenBtn = document.getElementById('copyTokenBtn');
+
+    // Check if token already exists to show button
+    if (localStorage.getItem('mts_token')) {
+        copyTokenBtn.style.display = 'block';
+    }
 
     async function handleAuth(endpoint) {
         const username = document.getElementById('username').value;
@@ -34,6 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 authStatus.style.color = 'var(--accent-green)';
                 localStorage.setItem('mts_token', data.access_token || data.token);
                 localStorage.setItem('mts_user', username);
+                copyTokenBtn.style.display = 'block';
+
+                // Notify all open MTS tabs to re-initialize their data
+                try {
+                    new BroadcastChannel('mts_auth').postMessage({ event: 'login', user: username });
+                } catch (e) {}
             } else {
                 authStatus.textContent = `DENIED: ${data.error || 'INVALID_AUTH'}`;
                 authStatus.style.color = 'var(--accent-red)';
@@ -46,4 +58,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     loginBtn.addEventListener('click', () => handleAuth('login'));
     registerBtn.addEventListener('click', () => handleAuth('register'));
+
+    copyTokenBtn.addEventListener('click', () => {
+        const token = localStorage.getItem('mts_token');
+        if (token) {
+            navigator.clipboard.writeText(token).then(() => {
+                const originalText = copyTokenBtn.innerHTML;
+                copyTokenBtn.innerHTML = '<i class="fa-solid fa-check"></i> TOKEN_COPIED';
+                copyTokenBtn.style.color = 'var(--accent-green)';
+                setTimeout(() => {
+                    copyTokenBtn.innerHTML = originalText;
+                    copyTokenBtn.style.color = '';
+                }, 2000);
+            });
+        }
+    });
 });

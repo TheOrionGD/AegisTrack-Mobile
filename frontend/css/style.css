@@ -13,7 +13,29 @@
     --border-color: rgba(0, 242, 255, 0.15);
     --font-main: 'Inter', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+    --font-heading: 'Papyrus', 'Copperplate', fantasy;
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── PAPYRUS HEADINGS ──────────────────────────────────────────── */
+h1, h2, h3 {
+    font-family: var(--font-heading);
+}
+
+.main-header h1 {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    letter-spacing: 3px;
+    font-weight: normal;
+    color: var(--text-primary);
+}
+
+.panel-header h3 {
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    color: var(--accent-cyan);
+    letter-spacing: 2px;
+    font-weight: normal;
 }
 
 * {
@@ -137,6 +159,84 @@ body::before {
 .right-sidebar .side-links a.active::before {
     left: auto;
     right: 0;
+}
+
+/* ZERO-TRUST: Locked nav links */
+.nav-locked {
+    color: rgba(255, 95, 95, 0.35) !important;
+    cursor: not-allowed !important;
+    position: relative;
+}
+
+.nav-locked:hover {
+    color: rgba(255, 95, 95, 0.6) !important;
+    background: rgba(255, 95, 95, 0.05) !important;
+    text-shadow: none !important;
+}
+
+.nav-lock-badge {
+    position: absolute !important;
+    bottom: 6px;
+    right: 8px;
+    font-size: 0.45rem !important;
+    color: rgba(255, 95, 95, 0.6);
+}
+
+/* Operator Identity Badge */
+.operator-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 8px;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+    font-size: 0.45rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    overflow: hidden;
+}
+
+.operator-badge i {
+    font-size: 1rem;
+}
+
+.operator-badge span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+    text-align: center;
+}
+
+.locked-badge {
+    color: rgba(255, 95, 95, 0.6) !important;
+    border-color: rgba(255, 95, 95, 0.2) !important;
+}
+
+/* Sidebar Logout Button */
+.sidebar-logout-btn {
+    width: 40px;
+    height: 36px;
+    background: transparent;
+    border: 1px solid rgba(255, 95, 95, 0.3);
+    border-radius: 4px;
+    color: rgba(255, 95, 95, 0.6);
+    cursor: pointer;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 8px auto 0;
+    transition: var(--transition);
+}
+
+.sidebar-logout-btn:hover {
+    background: rgba(255, 95, 95, 0.1);
+    border-color: #ff5f5f;
+    color: #ff5f5f;
 }
 
 /* MOBILE MENUBAR */
@@ -308,6 +408,25 @@ body::before {
     font-size: 0.75rem;
 }
 
+.cyber-select {
+    width: 100%;
+    background: rgba(13, 18, 28, 0.9);
+    border: 1px solid var(--border-color);
+    padding: 10px 12px 10px 35px;
+    border-radius: 4px;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.cyber-select option {
+    background: var(--bg-dark);
+    color: #fff;
+}
+
 /* BUTTONS */
 button {
     cursor: pointer;
@@ -324,6 +443,22 @@ button {
 
 .btn-primary { background: var(--accent-cyan); color: #000; padding: 10px; border-radius: 4px; flex: 1; }
 .btn-outline { background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 10px; border-radius: 4px; flex: 1; }
+.btn-subtle {
+    background: rgba(0, 242, 255, 0.05);
+    border: 1px dashed rgba(0, 242, 255, 0.3);
+    color: var(--accent-cyan);
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    opacity: 0.8;
+}
+.btn-subtle:hover {
+    background: rgba(0, 242, 255, 0.15);
+    border-style: solid;
+    opacity: 1;
+    box-shadow: 0 0 10px var(--accent-cyan-glow);
+}
 .btn-group { display: flex; gap: 8px; margin-top: 5px; }
 
 /* TELEMETRY CARDS */

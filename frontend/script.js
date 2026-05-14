@@ -312,12 +312,12 @@ function requestLocationPermission() {
 
 function updateLocation(position) {
     const { latitude, longitude, accuracy } = position.coords;
-    const timestamp = new Date().toLocaleString();
+    const timestamp = new Date().toISOString();
 
     latitudeEl.textContent = latitude.toFixed(6);
     longitudeEl.textContent = longitude.toFixed(6);
     accuracyEl.textContent = accuracy.toFixed(1);
-    timestampEl.textContent = timestamp;
+    timestampEl.textContent = new Date(timestamp).toLocaleString();
 
     sendLocationToBackend(latitude, longitude, accuracy, timestamp);
 }

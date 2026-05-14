@@ -49,6 +49,10 @@ public class GPSDashboard extends Application {
 
     private TextField deviceIdField;
     private TextField tokenField;
+    private TextField usernameField;
+    private javafx.scene.control.PasswordField passwordField;
+    private javafx.scene.control.ComboBox<String> deviceComboBox;
+    private Label authStatusLabel;
     private Label statusLabel;
     private Label connectionStatusLabel;
     private Label latitudeLabel;
@@ -136,28 +140,100 @@ public class GPSDashboard extends Application {
     private VBox createMainContent() {
         VBox container = new VBox(20);
         container.setPadding(new Insets(25));
-        
-        // TOP ACCESS PANEL
-        HBox authPanel = new HBox(15);
-        authPanel.setPadding(new Insets(15));
-        authPanel.getStyleClass().add("cyber-panel");
-        authPanel.setAlignment(Pos.CENTER_LEFT);
-        
-        VBox tokenBox = new VBox(5);
-        tokenBox.getChildren().addAll(new Label("ACCESS TOKEN"), tokenField = new TextField());
-        tokenField.setPromptText("Paste JWT Token here...");
-        tokenField.setPrefWidth(300);
-        
-        VBox idBox = new VBox(5);
-        idBox.getChildren().addAll(new Label("TARGET NODE"), deviceIdField = new TextField());
-        deviceIdField.setPromptText("Device ID");
-        
+
+        // ── OPERATOR LOGIN PANEL ───────────────────────────────────────────
+        VBox loginPanel = new VBox(12);
+        loginPanel.setPadding(new Insets(18));
+        loginPanel.getStyleClass().add("cyber-panel");
+
+        Label loginTitle = new Label("OPERATOR AUTHENTICATION");
+        loginTitle.getStyleClass().add("panel-title");
+
+        // Username row
+        HBox userRow = new HBox(10);
+        userRow.setAlignment(Pos.CENTER_LEFT);
+        Label userLbl = new Label("USERNAME:");
+        userLbl.setPrefWidth(100);
+        usernameField = new TextField();
+        usernameField.setPromptText("Operator ID...");
+        usernameField.setPrefWidth(200);
+        userRow.getChildren().addAll(userLbl, usernameField);
+
+        // Password row
+        HBox passRow = new HBox(10);
+        passRow.setAlignment(Pos.CENTER_LEFT);
+        Label passLbl = new Label("ACCESS CODE:");
+        passLbl.setPrefWidth(100);
+        passwordField = new javafx.scene.control.PasswordField();
+        passwordField.setPromptText("••••••••");
+        passwordField.setPrefWidth(200);
+        passRow.getChildren().addAll(passLbl, passwordField);
+
+        // Token display (read-only, auto-filled on login)
+        HBox tokenRow = new HBox(10);
+        tokenRow.setAlignment(Pos.CENTER_LEFT);
+        Label tokenLbl = new Label("SESSION TOKEN:");
+        tokenLbl.setPrefWidth(100);
+        tokenField = new TextField();
+        tokenField.setPromptText("Auto-filled on login — or paste JWT here manually...");
+        tokenField.setEditable(true);   // allow manual paste
+        tokenField.setPrefWidth(420);
+        tokenField.setStyle("-fx-opacity: 1.0; -fx-font-size: 10px;");
+        tokenRow.getChildren().addAll(tokenLbl, tokenField);
+
+        // Login button + status
+        HBox loginBtnRow = new HBox(15);
+        loginBtnRow.setAlignment(Pos.CENTER_LEFT);
+        Button loginBtn = new Button("AUTHENTICATE");
+        loginBtn.setPrefHeight(38);
+        loginBtn.setPrefWidth(140);
+        loginBtn.setOnAction(e -> loginAndFetchToken());
+
+        // Allow Enter key to trigger login
+        passwordField.setOnAction(e -> loginAndFetchToken());
+        usernameField.setOnAction(e -> passwordField.requestFocus());
+
+        authStatusLabel = new Label("AWAITING_CREDENTIALS");
+        authStatusLabel.setStyle("-fx-text-fill: #7a8a99; -fx-font-size: 10px;");
+        loginBtnRow.getChildren().addAll(loginBtn, authStatusLabel);
+
+        loginPanel.getChildren().addAll(loginTitle, userRow, passRow, tokenRow, loginBtnRow);
+
+        // ── DEVICE TO TRACE PANEL ──────────────────────────────────────────
+        HBox tracePanel = new HBox(15);
+        tracePanel.setPadding(new Insets(15));
+        tracePanel.getStyleClass().add("cyber-panel");
+        tracePanel.setAlignment(Pos.CENTER_LEFT);
+
+        Label traceTitle = new Label("DEVICE TO TRACE:");
+        traceTitle.setStyle("-fx-text-fill: #00f2ff; -fx-font-weight: bold;");
+
+        deviceComboBox = new javafx.scene.control.ComboBox<>();
+        deviceComboBox.setPromptText("-- SELECT NODE --");
+        deviceComboBox.setPrefWidth(250);
+        deviceComboBox.setOnAction(e -> {
+            String selected = deviceComboBox.getValue();
+            if (selected != null && !selected.isEmpty()) {
+                deviceIdField = new TextField(selected);
+                currentDeviceId = selected;
+                fetchDeviceLocation();
+            }
+        });
+
+        Button refreshNodesBtn = new Button("REFRESH NODES");
+        refreshNodesBtn.setOnAction(e -> refreshAllDevices());
+
         Button connectBtn = new Button("INITIATE LINK");
-        connectBtn.setPrefHeight(45);
+        connectBtn.setPrefHeight(38);
         connectBtn.setOnAction(e -> connectWebSocket());
-        
-        authPanel.getChildren().addAll(tokenBox, idBox, connectBtn);
-        
+
+        // Hidden deviceIdField (kept for internal use)
+        deviceIdField = new TextField();
+        deviceIdField.setVisible(false);
+        deviceIdField.setManaged(false);
+
+        tracePanel.getChildren().addAll(traceTitle, deviceComboBox, refreshNodesBtn, connectBtn);
+
         // TELEMETRY DISPLAY
         GridPane telemetryPanel = new GridPane();
         telemetryPanel.setHgap(20);
@@ -166,10 +242,15 @@ public class GPSDashboard extends Application {
         telemetryPanel.getStyleClass().add("cyber-panel");
         
         latitudeLabel = new Label("LATITUDE: --");
+        latitudeLabel.getStyleClass().add("data-label");
         longitudeLabel = new Label("LONGITUDE: --");
+        longitudeLabel.getStyleClass().add("data-label");
         accuracyLabel = new Label("ACCURACY: --");
+        accuracyLabel.getStyleClass().add("data-label");
         timestampLabel = new Label("SYNC: --");
+        timestampLabel.getStyleClass().add("data-label");
         statusLabel = new Label("STATUS: IDLE");
+        statusLabel.getStyleClass().add("status-text");
         
         telemetryPanel.add(new Label("REAL-TIME SENSORS"), 0, 0, 2, 1);
         telemetryPanel.add(latitudeLabel, 0, 1);
@@ -212,9 +293,60 @@ public class GPSDashboard extends Application {
         mapsBtn.setOnAction(e -> openInGoogleMaps());
         
         tableContainer.getChildren().addAll(tableTitle, deviceTable, mapsBtn);
-        
-        container.getChildren().addAll(authPanel, telemetryPanel, tableContainer);
+
+        container.getChildren().addAll(loginPanel, tracePanel, telemetryPanel, tableContainer);
         return container;
+    }
+
+    // ── Auto-login: sends credentials, receives token, populates device list ─
+    private void loginAndFetchToken() {
+        String username = usernameField.getText().trim();
+        String password = passwordField.getText().trim();
+        if (username.isEmpty() || password.isEmpty()) {
+            Platform.runLater(() -> {
+                authStatusLabel.setText("ERR: USERNAME_AND_PASSWORD_REQUIRED");
+                authStatusLabel.setStyle("-fx-text-fill: #ff5f5f; -fx-font-size: 10px;");
+            });
+            return;
+        }
+        Platform.runLater(() -> {
+            authStatusLabel.setText("AUTHENTICATING...");
+            authStatusLabel.setStyle("-fx-text-fill: #00f2ff; -fx-font-size: 10px;");
+        });
+        new Thread(() -> {
+            try {
+                String body = "{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}";
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(BACKEND_URL + "/login"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                JsonNode json = objectMapper.readTree(res.body());
+
+                if (res.statusCode() == 200) {
+                    String token = json.path("access_token").asText();
+                    Platform.runLater(() -> {
+                        tokenField.setText(token);
+                        authStatusLabel.setText("ACCESS_GRANTED — " + username.toUpperCase());
+                        authStatusLabel.setStyle("-fx-text-fill: #00ff9d; -fx-font-size: 10px;");
+                    });
+                    // Auto-populate device list
+                    refreshAllDevices();
+                } else {
+                    String err = json.path("error").asText("INVALID_CREDENTIALS");
+                    Platform.runLater(() -> {
+                        authStatusLabel.setText("DENIED: " + err.toUpperCase());
+                        authStatusLabel.setStyle("-fx-text-fill: #ff5f5f; -fx-font-size: 10px;");
+                    });
+                }
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    authStatusLabel.setText("ERR: BACKEND_OFFLINE");
+                    authStatusLabel.setStyle("-fx-text-fill: #ff5f5f; -fx-font-size: 10px;");
+                });
+            }
+        }).start();
     }
 
     private void refreshAllDevices() {
@@ -223,28 +355,30 @@ public class GPSDashboard extends Application {
             try {
                 HttpRequest request = requestBuilder(BACKEND_URL + "/devices").GET().build();
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-                
+
                 if (response.statusCode() == 200) {
                     JsonNode root = objectMapper.readTree(response.body());
+                    JsonNode deviceArray = root.path("devices");
                     ObservableList<DeviceLocation> newItems = FXCollections.observableArrayList();
                     ObservableList<String> newIds = FXCollections.observableArrayList();
-                    
-                    if (root.isArray()) {
-                        for (JsonNode node : root) {
+
+                    if (deviceArray.isArray()) {
+                        for (JsonNode node : deviceArray) {
                             String id = node.path("device_id").asText();
-                            double lat = node.path("last_latitude").asDouble();
-                            double lng = node.path("last_longitude").asDouble();
-                            double acc = node.path("last_accuracy").asDouble();
-                            String ts = node.path("last_sync").asText();
-                            
+                            double lat = node.path("latitude").asDouble();
+                            double lng = node.path("longitude").asDouble();
+                            double acc = node.path("accuracy").asDouble();
+                            String ts  = node.path("timestamp").asText();
                             newItems.add(new DeviceLocation(id, lat, lng, acc, ts));
                             newIds.add(id);
                         }
                     }
-                    
+
                     Platform.runLater(() -> {
                         deviceList.setAll(newItems);
                         registeredIdsList.setAll(newIds);
+                        // Populate the combo box
+                        deviceComboBox.getItems().setAll(newIds);
                         statusLabel.setText("STATUS: Manifest Updated");
                     });
                 } else if (response.statusCode() == 401) {
@@ -313,7 +447,7 @@ public class GPSDashboard extends Application {
     private boolean isUnauthenticated() {
         String token = tokenField.getText().trim();
         if (token.isEmpty()) {
-            showAlert("DENIED", "AUTHENTICATION_REQUIRED. Please paste your session token.");
+            showAlert("DENIED", "AUTHENTICATION_REQUIRED. Enter username + password and click AUTHENTICATE first.");
             return true;
         }
         return false;
@@ -331,6 +465,7 @@ public class GPSDashboard extends Application {
                         accuracyLabel.setText("ACCURACY: " + p.path("accuracy").asDouble() + "M");
                         timestampLabel.setText("SYNC: " + p.path("timestamp").asText());
                         statusLabel.setText("STATUS: LIVE_UPDATE");
+                        statusLabel.getStyleClass().add("status-live");
                     });
                 }
             }
