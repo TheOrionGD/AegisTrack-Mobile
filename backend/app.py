@@ -8,6 +8,7 @@ import qrcode
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote_plus
 import requests
+import re
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
