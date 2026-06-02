@@ -122,9 +122,11 @@ except Exception as e:
 
 
 def ensure_default_operator():
-    default_username = 'oriongd@mts.com'
-    default_password = 'OrionGD'
-    if not users.find_one({'username': default_username}):
+    default_username = os.getenv('OPERATOR_USERNAME', 'oriongd@mts.com')
+    default_password = os.getenv('OPERATOR_PASSWORD', 'OrionGD')
+    
+    existing_operator = users.find_one({'username': default_username})
+    if not existing_operator:
         users.insert_one({
             'username': default_username,
             'password': hash_password(default_password),
@@ -133,9 +135,18 @@ def ensure_default_operator():
         })
         vault_operators.insert_one({
             'owner': default_username,
-            'data': {'name': 'ORIONGD', 'role': 'Tracking Operator', 'status': 'Active'},
+            'data': {'name': default_username.split('@')[0].upper(), 'role': 'Tracking Operator', 'status': 'Active'},
             'created_at': datetime.now(timezone.utc)
         })
+        print(f"Default operator '{default_username}' initialized securely.")
+    else:
+        # If the operator exists but the password in .env has changed, sync it automatically
+        if not verify_password(default_password, existing_operator['password']):
+            users.update_one(
+                {'username': default_username},
+                {'$set': {'password': hash_password(default_password)}}
+            )
+            print(f"Operator '{default_username}' password securely synchronized from environment.")
 
 
 
