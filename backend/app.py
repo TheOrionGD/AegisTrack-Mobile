@@ -122,8 +122,8 @@ except Exception as e:
 
 
 def ensure_default_operator():
-    default_username = os.getenv('OPERATOR_USERNAME', 'oriongd@mts.com')
-    default_password = os.getenv('OPERATOR_PASSWORD', 'OrionGD')
+    default_username = os.getenv('OPERATOR_USERNAME')
+    default_password = os.getenv('OPERATOR_PASSWORD')
     
     existing_operator = users.find_one({'username': default_username})
     if not existing_operator:
