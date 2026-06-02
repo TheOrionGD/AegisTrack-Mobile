@@ -15,7 +15,19 @@ try:
     client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
     db = client['gps_tracking']
     
-    collections = ['users', 'devices', 'locations', 'geofences', 'alerts']
+    # Get all collections present in the database, excluding system collections
+    db_collections = db.list_collection_names()
+    db_collections = [c for c in db_collections if not c.startswith('system.')]
+    
+    # Explicit list of all known collections to ensure we cover them all
+    defined_collections = [
+        'users', 'devices', 'locations', 'geofences', 'alerts',
+        'vault_analytics', 'vault_threats', 'vault_logs', 
+        'vault_files', 'vault_operators', 'vault_config'
+    ]
+    
+    # Merge and sort the collections
+    collections = sorted(list(set(db_collections + defined_collections)))
     
     for collection_name in collections:
         result = db[collection_name].delete_many({})

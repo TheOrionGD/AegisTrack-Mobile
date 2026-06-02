@@ -20,12 +20,20 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
 import java.util.concurrent.CompletionStage;
+import javafx.scene.web.WebView;
+import javafx.scene.web.WebEngine;
 
 public class GPSDashboard extends Application {
 
     private static String BACKEND_URL = "http://localhost:5000";
+    private static String FRONTEND_URL = "http://localhost:8000";
     private static final HttpClient httpClient = HttpClient.newHttpClient();
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private StackPane contentArea;
+    private java.util.Map<String, VBox> sectionViews = new java.util.HashMap<>();
+    private java.util.List<Button> sidebarButtons = new java.util.ArrayList<>();
+    private static final String SIDEBAR_BUTTON_DEFAULT = "-fx-background-color: transparent; -fx-text-fill: #9acddf; -fx-font-size: 12px; -fx-alignment: CENTER_LEFT; -fx-padding: 10 14 10 14;";
+    private static final String SIDEBAR_BUTTON_ACTIVE = "-fx-background-color: rgba(0, 242, 255, 0.18); -fx-text-fill: #00f2ff; -fx-font-size: 12px; -fx-font-weight: bold; -fx-alignment: CENTER_LEFT; -fx-padding: 10 14 10 14;";
 
     static {
         loadEnv();
@@ -37,15 +45,22 @@ public class GPSDashboard extends Application {
             if (java.nio.file.Files.exists(envPath)) {
                 java.util.List<String> lines = java.nio.file.Files.readAllLines(envPath);
                 String ip = "127.0.0.1";
+                String port = "8000";
                 for (String line : lines) {
                     if (line.startsWith("SYSTEM_IPV4=")) {
                         ip = line.split("=")[1].trim();
                     }
+                    if (line.startsWith("PORT=")) {
+                        port = line.split("=")[1].trim();
+                    }
                 }
                 BACKEND_URL = "http://" + ip + ":5000";
+                FRONTEND_URL = "http://" + ip + ":" + port;
             }
         } catch (Exception e) {}
     }
+
+    private WebView portalWebView;
 
     private TextField deviceIdField;
     private TextField tokenField;
@@ -60,9 +75,30 @@ public class GPSDashboard extends Application {
     private Label accuracyLabel;
     private Label timestampLabel;
     private TableView<DeviceLocation> deviceTable;
-    private ObservableList<DeviceLocation> deviceList;
-    private ListView<String> registeredDevicesListView;
-    private ObservableList<String> registeredIdsList;
+    private ObservableList<DeviceLocation> deviceList = FXCollections.observableArrayList();
+    private ListView<String> enrollmentRequestsList;
+    private ObservableList<String> enrollmentRequests = FXCollections.observableArrayList();
+    private ObservableList<String> registeredIdsList = FXCollections.observableArrayList();
+    private ObservableList<String> consentItems = FXCollections.observableArrayList();
+    private ObservableList<String> auditItems = FXCollections.observableArrayList();
+    private ObservableList<String> registryItems = FXCollections.observableArrayList();
+    private ObservableList<String> alertItems = FXCollections.observableArrayList();
+    private ObservableList<String> threatItems = FXCollections.observableArrayList();
+    private ObservableList<String> operatorItems = FXCollections.observableArrayList();
+    private ListView<String> consentListView;
+    private ListView<String> auditListView;
+    private ListView<String> registryListView;
+    private ListView<String> alertListView;
+    private ListView<String> threatListView;
+    private ListView<String> operatorsListView;
+    private Label totalDevicesLabel;
+    private Label activeConsentsLabel;
+    private Label recentAlertsLabel;
+    private Label systemHealthLabel;
+    private TextField geofenceDeviceField;
+    private TextField geofenceLatField;
+    private TextField geofenceLngField;
+    private TextField geofenceRadiusField;
     private WebSocket webSocket;
     private String currentDeviceId = "";
 
@@ -81,11 +117,31 @@ public class GPSDashboard extends Application {
         VBox sidebar = createSidebar();
         root.setLeft(sidebar);
         
-        // MAIN CONTENT
-        VBox mainContent = createMainContent();
-        root.setCenter(mainContent);
+        // MAIN CONTENT AREA
+        contentArea = new StackPane();
+        sectionViews = new java.util.HashMap<>();
+        sidebarButtons = new java.util.ArrayList<>();
+
+        contentArea.getChildren().addAll(
+            createOverviewSection(),
+            createLiveMonitoringSection(),
+            createLiveMonitorPortalSection(),
+            createEnrollmentRequestsSection(),
+            createConsentManagementSection(),
+            createGeofenceAdministrationSection(),
+            createAlertCenterSection(),
+            createThreatIntelSection(),
+            createAuditLogsSection(),
+            createDeviceRegistrySection(),
+            createReportsSection(),
+            createOperatorManagementSection(),
+            createHealthMonitoringSection(),
+            createSettingsSection()
+        );
+        switchSection("Dashboard Overview");
+        root.setCenter(contentArea);
         
-        Scene scene = new Scene(root, 1000, 700);
+        Scene scene = new Scene(root, 1100, 760);
         
         // Apply CSS
         try {
@@ -105,39 +161,75 @@ public class GPSDashboard extends Application {
     }
 
     private VBox createSidebar() {
-        VBox sidebar = new VBox(20);
-        sidebar.setPadding(new Insets(20));
-        sidebar.setPrefWidth(220);
-        sidebar.setStyle("-fx-background-color: #0d121c; -fx-border-color: rgba(0, 242, 255, 0.1); -fx-border-width: 0 1 0 0;");
-        
-        Label logo = new Label("MTS CORE");
+        VBox sidebar = new VBox(14);
+        sidebar.setPadding(new Insets(24));
+        sidebar.setPrefWidth(240);
+        sidebar.setStyle("-fx-background-color: #07101a; -fx-border-color: rgba(0, 242, 255, 0.16); -fx-border-width: 0 1 0 0;");
+
+        Label logo = new Label("MTS CORE TRACKER");
         logo.setStyle("-fx-text-fill: #00f2ff; -fx-font-size: 18px; -fx-font-weight: bold;");
-        
-        Label registryTitle = new Label("HARDWARE REGISTRY");
-        registryTitle.getStyleClass().add("panel-title");
-        
-        registeredIdsList = FXCollections.observableArrayList();
-        registeredDevicesListView = new ListView<>(registeredIdsList);
-        registeredDevicesListView.setPrefHeight(400);
-        registeredDevicesListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null) {
-                deviceIdField.setText(newVal);
-                fetchDeviceLocation();
-            }
-        });
-        
-        Button refreshBtn = new Button("REFRESH REGISTRY");
+        Label tagline = new Label("CDEAS | CONSENT AUTHORIZATION");
+        tagline.setStyle("-fx-text-fill: #7a8a99; -fx-font-size: 10px; -fx-padding: 0 0 12 0;");
+
+        VBox navGroup = new VBox(8);
+        String[] navLabels = {
+            "Dashboard Overview",
+            "Live Device Monitoring",
+            "Live Monitor Portal",
+            "Device Enrollment Requests",
+            "Consent Management",
+            "Geofence Administration",
+            "Alert Center",
+            "Threat Intelligence",
+            "Audit Logs",
+            "Device Registry",
+            "Reports & Analytics",
+            "Operator Management",
+            "System Health",
+            "Settings"
+        };
+
+        String defaultStyle = "-fx-background-color: transparent; -fx-text-fill: #9acddf; -fx-font-size: 12px; -fx-alignment: CENTER_LEFT; -fx-padding: 10 14 10 14;";
+        String activeButtonStyle = "-fx-background-color: rgba(0, 242, 255, 0.18); -fx-text-fill: #00f2ff; -fx-font-size: 12px; -fx-font-weight: bold; -fx-alignment: CENTER_LEFT; -fx-padding: 10 14 10 14;";
+
+        for (String label : navLabels) {
+            Button navButton = new Button(label);
+            navButton.setMaxWidth(Double.MAX_VALUE);
+            navButton.setStyle(defaultStyle);
+            navButton.setOnAction(e -> {
+                switchSection(label);
+                sidebarButtons.forEach(btn -> btn.setStyle(btn == navButton ? activeButtonStyle : defaultStyle));
+            });
+            sidebarButtons.add(navButton);
+            navGroup.getChildren().add(navButton);
+        }
+
+        Separator divider = new Separator();
+        divider.setOpacity(0.2);
+
+        Button refreshBtn = new Button("REFRESH DEVICES");
         refreshBtn.setMaxWidth(Double.MAX_VALUE);
         refreshBtn.setOnAction(e -> refreshAllDevices());
-        
+        refreshBtn.getStyleClass().add("button-outline");
+
         connectionStatusLabel = new Label("WS: Disconnected");
         connectionStatusLabel.setStyle("-fx-text-fill: #7a8a99; -fx-font-size: 10px;");
-        
-        sidebar.getChildren().addAll(logo, registryTitle, registeredDevicesListView, refreshBtn, connectionStatusLabel);
+
+        sidebar.getChildren().addAll(logo, tagline, navGroup, divider, refreshBtn, connectionStatusLabel);
         return sidebar;
     }
 
-    private VBox createMainContent() {
+    private void switchSection(String key) {
+        sectionViews.forEach((section, pane) -> pane.setVisible(section.equals(key)));
+        if (sidebarButtons != null) {
+            sidebarButtons.forEach(btn -> btn.setStyle(btn.getText().equals(key) ? SIDEBAR_BUTTON_ACTIVE : SIDEBAR_BUTTON_DEFAULT));
+        }
+        if ("Live Monitor Portal".equals(key) && portalWebView != null) {
+            portalWebView.getEngine().load(FRONTEND_URL + "/pages/live-monitor.html");
+        }
+    }
+
+    private VBox createOverviewSection() {
         VBox container = new VBox(20);
         container.setPadding(new Insets(25));
 
@@ -214,7 +306,7 @@ public class GPSDashboard extends Application {
         deviceComboBox.setOnAction(e -> {
             String selected = deviceComboBox.getValue();
             if (selected != null && !selected.isEmpty()) {
-                deviceIdField = new TextField(selected);
+                deviceIdField.setText(selected);
                 currentDeviceId = selected;
                 fetchDeviceLocation();
             }
@@ -269,6 +361,7 @@ public class GPSDashboard extends Application {
         
         deviceList = FXCollections.observableArrayList();
         deviceTable = new TableView<>(deviceList);
+        deviceTable.setPlaceholder(new Label("No Devices Registered"));
         
         TableColumn<DeviceLocation, String> idCol = new TableColumn<>("NODE_ID");
         idCol.setCellValueFactory(new PropertyValueFactory<>("deviceId"));
@@ -295,10 +388,666 @@ public class GPSDashboard extends Application {
         tableContainer.getChildren().addAll(tableTitle, deviceTable, mapsBtn);
 
         container.getChildren().addAll(loginPanel, tracePanel, telemetryPanel, tableContainer);
+        sectionViews.put("Dashboard Overview", container);
         return container;
     }
 
-    // ── Auto-login: sends credentials, receives token, populates device list ─
+    private VBox createSectionShell(String title) {
+        VBox container = new VBox(18);
+        container.setPadding(new Insets(24));
+        container.setStyle("-fx-background-color: rgba(13, 18, 28, 0.94); -fx-border-color: rgba(0, 242, 255, 0.15); -fx-border-width: 1; -fx-border-radius: 8; -fx-background-radius: 8;");
+        Label header = new Label(title);
+        header.getStyleClass().add("panel-title");
+        container.getChildren().add(header);
+        return container;
+    }
+
+    private VBox createLiveMonitoringSection() {
+        VBox container = createSectionShell("Live Device Monitoring");
+        HBox metricRow = new HBox(14);
+        metricRow.setAlignment(Pos.CENTER_LEFT);
+
+        metricRow.getChildren().addAll(
+            createMetricCard("ACTIVE NODES", "--", "#00ff88"),
+            createMetricCard("ALERTS", "--", "#ff4444"),
+            createMetricCard("AVG ACCURACY", "-- m", "#ffbb33"),
+            createMetricCard("LINK STATUS", "OFFLINE", "#00f2ff")
+        );
+
+        VBox tableContainer = new VBox(10);
+        tableContainer.setPadding(new Insets(14));
+        tableContainer.setStyle("-fx-background-color: rgba(0,0,0,0.14); -fx-border-color: rgba(255,255,255,0.08); -fx-border-width: 1; -fx-border-radius: 6; -fx-background-radius: 6;");
+        Label tableTitle = new Label("LIVE NODE MANIFEST");
+        tableTitle.getStyleClass().add("panel-title");
+
+        TableView<DeviceLocation> manifestTable = new TableView<>(deviceList);
+        manifestTable.setPlaceholder(new Label("No Devices Registered"));
+        manifestTable.setPrefHeight(300);
+        manifestTable.getColumns().add(createColumn("NODE_ID", "deviceId", 160));
+        manifestTable.getColumns().add(createColumn("LAT", "latitude", 100));
+        manifestTable.getColumns().add(createColumn("LNG", "longitude", 100));
+        manifestTable.getColumns().add(createColumn("TIMESTAMP", "timestamp", 220));
+        manifestTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        tableContainer.getChildren().addAll(tableTitle, manifestTable);
+        container.getChildren().addAll(metricRow, tableContainer);
+
+        totalDevicesLabel = new Label("Total Devices: --");
+        activeConsentsLabel = new Label("Active Consents: --");
+        recentAlertsLabel = new Label("Recent Alerts: --");
+        totalDevicesLabel.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 12px;");
+        activeConsentsLabel.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 12px;");
+        recentAlertsLabel.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 12px;");
+
+        HBox summaryRow = new HBox(18, totalDevicesLabel, activeConsentsLabel, recentAlertsLabel);
+        summaryRow.setPadding(new Insets(10, 0, 0, 0));
+        container.getChildren().add(summaryRow);
+        sectionViews.put("Live Device Monitoring", container);
+        return container;
+    }
+
+    private VBox createLiveMonitorPortalSection() {
+        VBox container = createSectionShell("Live Monitor Portal");
+        portalWebView = new WebView();
+        VBox.setVgrow(portalWebView, Priority.ALWAYS);
+        
+        WebEngine webEngine = portalWebView.getEngine();
+        webEngine.getLoadWorker().stateProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == javafx.concurrent.Worker.State.SUCCEEDED) {
+                String token = tokenField.getText().trim();
+                if (!token.isEmpty()) {
+                    try {
+                        webEngine.executeScript(
+                            "localStorage.setItem('access_token', '" + token + "');" +
+                            "jwtToken = '" + token + "';" +
+                            "if (typeof showDashboard === 'function') { showDashboard(); }"
+                        );
+                    } catch (Exception ex) {
+                        System.err.println("SSO token injection failed: " + ex.getMessage());
+                    }
+                }
+            }
+        });
+        
+        container.getChildren().add(portalWebView);
+        sectionViews.put("Live Monitor Portal", container);
+        return container;
+    }
+
+    private VBox createEnrollmentRequestsSection() {
+        VBox container = createSectionShell("Device Enrollment Requests");
+        Label detail = new Label("Pending operator request queue and secure link generation.");
+        detail.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 12px;");
+
+        enrollmentRequestsList = new ListView<>(enrollmentRequests);
+        enrollmentRequestsList.setPlaceholder(new Label("No Tracking Requests Found"));
+        enrollmentRequestsList.setPrefHeight(260);
+        enrollmentRequests.clear();
+
+        Button refreshBtn = new Button("Refresh Requests");
+        refreshBtn.setOnAction(e -> refreshEnrollmentRequests());
+
+        container.getChildren().addAll(detail, enrollmentRequestsList, refreshBtn);
+        sectionViews.put("Device Enrollment Requests", container);
+        return container;
+    }
+
+    private void refreshEnrollmentRequests() {
+        String token = tokenField.getText();
+        if (token == null || token.isEmpty()) return;
+
+        new Thread(() -> {
+            try {
+                HttpRequest req = requestBuilder(BACKEND_URL + "/tracking-requests").GET().build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    JsonNode arr = objectMapper.readTree(res.body()).path("requests");
+                    ObservableList<String> items = FXCollections.observableArrayList();
+                    if (arr.isArray()) {
+                        for (JsonNode node : arr) {
+                            String owner = node.path("owner_name").asText("<unknown>");
+                            String tokenId = node.path("token").asText("");
+                            String status = node.path("status").asText("");
+                            items.add(String.format("%s — %s — %s", owner, tokenId, status));
+                        }
+                    }
+                    Platform.runLater(() -> enrollmentRequests.setAll(items));
+                }
+            } catch (Exception ex) {
+                // ignore errors for now
+            }
+        }).start();
+    }
+
+    private VBox createConsentManagementSection() {
+        VBox container = createSectionShell("Consent Management");
+        Label summary = new Label("Revoke or audit active consent agreements and view authorization history.");
+        summary.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 12px;");
+        consentListView = new ListView<>(consentItems);
+        consentListView.setPlaceholder(new Label("No Devices Registered"));
+        consentListView.setPrefHeight(260);
+
+        Button refreshBtn = new Button("Refresh Consents");
+        refreshBtn.setOnAction(e -> refreshConsentList());
+
+        Button revokeBtn = new Button("WITHDRAW SELECTED CONSENT");
+        revokeBtn.setMaxWidth(Double.MAX_VALUE);
+        revokeBtn.getStyleClass().add("button-outline");
+        revokeBtn.setOnAction(e -> revokeSelectedConsent());
+
+        container.getChildren().addAll(summary, consentListView, refreshBtn, revokeBtn);
+        sectionViews.put("Consent Management", container);
+        return container;
+    }
+
+    private void refreshConsentList() {
+        if (isUnauthenticated()) return;
+        new Thread(() -> {
+            try {
+                HttpRequest req = requestBuilder(BACKEND_URL + "/device-registrations").GET().build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    JsonNode arr = objectMapper.readTree(res.body()).path("registrations");
+                    ObservableList<String> items = FXCollections.observableArrayList();
+                    if (arr.isArray()) {
+                        for (JsonNode node : arr) {
+                            String did = node.path("device_id").asText("<id>");
+                            String owner = node.path("owner_name").asText("<owner>");
+                            String ts = node.path("registered_at").asText("");
+                            items.add(String.format("%s — %s — %s", did, owner, ts));
+                        }
+                    }
+                    Platform.runLater(() -> {
+                        consentItems.setAll(items);
+                        refreshReports();
+                    });
+                }
+            } catch (Exception e) {}
+        }).start();
+    }
+
+    private VBox createGeofenceAdministrationSection() {
+        VBox container = createSectionShell("Geofence Administration");
+        Label text = new Label("Deploy geo-zones, review boundary integrity, and monitor enforcement.");
+        text.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 12px;");
+
+        HBox deviceRow = new HBox(10);
+        deviceRow.setAlignment(Pos.CENTER_LEFT);
+        Label deviceLabel = new Label("DEVICE ID:");
+        deviceLabel.setPrefWidth(90);
+        geofenceDeviceField = new TextField();
+        geofenceDeviceField.setPromptText("Enter or choose device id");
+        geofenceDeviceField.setPrefWidth(280);
+        deviceRow.getChildren().addAll(deviceLabel, geofenceDeviceField);
+
+        HBox coordRow = new HBox(10);
+        coordRow.setAlignment(Pos.CENTER_LEFT);
+        geofenceLatField = new TextField();
+        geofenceLatField.setPromptText("Center latitude");
+        geofenceLatField.setPrefWidth(150);
+        geofenceLngField = new TextField();
+        geofenceLngField.setPromptText("Center longitude");
+        geofenceLngField.setPrefWidth(150);
+        geofenceRadiusField = new TextField();
+        geofenceRadiusField.setPromptText("Radius meters");
+        geofenceRadiusField.setPrefWidth(130);
+        coordRow.getChildren().addAll(geofenceLatField, geofenceLngField, geofenceRadiusField);
+
+        HBox actionRow = new HBox(10);
+        Button loadFence = new Button("LOAD ZONE");
+        loadFence.setOnAction(e -> loadGeofence());
+        Button setFence = new Button("SET GEOFENCE");
+        setFence.setOnAction(e -> setGeofence());
+        actionRow.getChildren().addAll(loadFence, setFence);
+
+        container.getChildren().addAll(text, deviceRow, coordRow, actionRow);
+        sectionViews.put("Geofence Administration", container);
+        return container;
+    }
+
+    private VBox createAlertCenterSection() {
+        VBox container = createSectionShell("Alert Center");
+        alertListView = new ListView<>(alertItems);
+        alertListView.setPrefHeight(320);
+        Button refreshBtn = new Button("Refresh Alerts");
+        refreshBtn.setOnAction(e -> refreshAlerts());
+        container.getChildren().addAll(alertListView, refreshBtn);
+        sectionViews.put("Alert Center", container);
+        return container;
+    }
+
+    private VBox createThreatIntelSection() {
+        VBox container = createSectionShell("Threat Intelligence");
+        Label insights = new Label("Analyze threat pulses, verify anomaly clusters, and tune sensory heuristics.");
+        insights.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 12px;");
+        threatListView = new ListView<>(threatItems);
+        threatListView.setPrefHeight(280);
+        Button refreshBtn = new Button("Refresh Threat Feed");
+        refreshBtn.setOnAction(e -> refreshThreatIntel());
+        container.getChildren().addAll(insights, threatListView, refreshBtn);
+        sectionViews.put("Threat Intelligence", container);
+        return container;
+    }
+
+    private VBox createAuditLogsSection() {
+        VBox container = createSectionShell("Audit Logs");
+        auditListView = new ListView<>(auditItems);
+        auditListView.setPrefHeight(320);
+        Button refreshBtn = new Button("Refresh Audit Logs");
+        refreshBtn.setOnAction(e -> refreshAuditLogs());
+        container.getChildren().addAll(auditListView, refreshBtn);
+        sectionViews.put("Audit Logs", container);
+        return container;
+    }
+
+    private void refreshAuditLogs() {
+        if (isUnauthenticated()) return;
+        new Thread(() -> {
+            try {
+                HttpRequest req = requestBuilder(BACKEND_URL + "/vault/logs").GET().build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    JsonNode arr = objectMapper.readTree(res.body()).path("logs");
+                    ObservableList<String> items = FXCollections.observableArrayList();
+                    if (arr.isArray()) {
+                        for (JsonNode node : arr) {
+                            String ts = node.path("created_at").asText("");
+                            JsonNode dataNode = node.path("data");
+                            String ev = dataNode.path("event").asText("");
+                            String who = node.path("owner").asText("");
+                            items.add(String.format("%s — %s — %s", ts, ev, who));
+                        }
+                    }
+                    Platform.runLater(() -> {
+                        if (items.isEmpty()) {
+                            items.add("No audit events recorded.");
+                        }
+                        auditItems.setAll(items);
+                    });
+                }
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    auditItems.setAll(FXCollections.observableArrayList("No audit events recorded."));
+                });
+            }
+        }).start();
+    }
+
+    private VBox createDeviceRegistrySection() {
+        VBox container = createSectionShell("Device Registry");
+        registryListView = new ListView<>(registryItems);
+        registryListView.setPrefHeight(320);
+        Button refreshBtn = new Button("Refresh Registry");
+        refreshBtn.setOnAction(e -> refreshDeviceRegistrations());
+        container.getChildren().addAll(registryListView, refreshBtn);
+        sectionViews.put("Device Registry", container);
+        return container;
+    }
+
+    private VBox createReportsSection() {
+        VBox container = createSectionShell("Reports & Analytics");
+        Label summary = new Label("Generate compliance reports, export consent timelines, and review operational KPIs.");
+        summary.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 12px;");
+        Label reportText = new Label("Current dashboard counts and consent metrics are available in the overview.");
+        reportText.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 12px;");
+        Button refreshBtn = new Button("Refresh Dashboard Summary");
+        refreshBtn.setOnAction(e -> refreshReports());
+        container.getChildren().addAll(summary, reportText, refreshBtn);
+        sectionViews.put("Reports & Analytics", container);
+        return container;
+    }
+
+    private VBox createOperatorManagementSection() {
+        VBox container = createSectionShell("Operator Management");
+        operatorsListView = new ListView<>(operatorItems);
+        operatorsListView.setPrefHeight(320);
+        Button refreshBtn = new Button("Refresh Operators");
+        refreshBtn.setOnAction(e -> refreshOperators());
+        Button createBtn = new Button("Create Operator");
+        createBtn.setOnAction(e -> promptCreateOperator());
+        HBox buttonRow = new HBox(10, refreshBtn, createBtn);
+        container.getChildren().addAll(operatorsListView, buttonRow);
+        sectionViews.put("Operator Management", container);
+        return container;
+    }
+
+    private void refreshOperators() {
+        if (isUnauthenticated()) return;
+        new Thread(() -> {
+            try {
+                HttpRequest req = requestBuilder(BACKEND_URL + "/operators").GET().build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    JsonNode arr = objectMapper.readTree(res.body()).path("operators");
+                    ObservableList<String> items = FXCollections.observableArrayList();
+                    if (arr.isArray()) {
+                        for (JsonNode node : arr) {
+                            String uname = node.path("username").asText("");
+                            String created = node.path("created_at").asText("");
+                            items.add(String.format("%s — %s", uname, created));
+                        }
+                    }
+                    Platform.runLater(() -> operatorItems.setAll(items));
+                }
+            } catch (Exception e) {}
+        }).start();
+    }
+
+    private void refreshDeviceRegistrations() {
+        if (isUnauthenticated()) return;
+        new Thread(() -> {
+            try {
+                HttpRequest req = requestBuilder(BACKEND_URL + "/device-registrations").GET().build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    JsonNode arr = objectMapper.readTree(res.body()).path("registrations");
+                    ObservableList<String> items = FXCollections.observableArrayList();
+                    if (arr.isArray()) {
+                        for (JsonNode node : arr) {
+                            String did = node.path("device_id").asText("<id>");
+                            String owner = node.path("owner_name").asText("<owner>");
+                            String status = node.path("tracking_status").asText("<status>");
+                            items.add(String.format("%s — %s — %s", did, owner, status));
+                        }
+                    }
+                    Platform.runLater(() -> registryItems.setAll(items));
+                }
+            } catch (Exception e) {}
+        }).start();
+    }
+
+    private void refreshAlerts() {
+        if (isUnauthenticated()) return;
+        new Thread(() -> {
+            try {
+                HttpRequest req = requestBuilder(BACKEND_URL + "/alerts").GET().build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    JsonNode arr = objectMapper.readTree(res.body()).path("alerts");
+                    ObservableList<String> items = FXCollections.observableArrayList();
+                    int count = 0;
+                    if (arr.isArray()) {
+                        for (JsonNode node : arr) {
+                            String dev = node.path("device_id").asText("<id>");
+                            String type = node.path("type").asText("<type>");
+                            String message = node.path("message").asText(node.path("type").asText(""));
+                            String ts = node.path("created_at").asText("");
+                            items.add(String.format("%s — %s — %s — %s", ts, dev, type, message));
+                            count++;
+                        }
+                    }
+                    final int finalCount = count;
+                    Platform.runLater(() -> {
+                        alertItems.setAll(items);
+                        if (recentAlertsLabel != null) {
+                            recentAlertsLabel.setText("Recent Alerts: " + finalCount);
+                        }
+                        refreshReports();
+                    });
+                }
+            } catch (Exception e) {}
+        }).start();
+    }
+
+    private void refreshThreatIntel() {
+        if (isUnauthenticated()) return;
+        new Thread(() -> {
+            try {
+                HttpRequest req = requestBuilder(BACKEND_URL + "/vault/threats").GET().build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    JsonNode arr = objectMapper.readTree(res.body()).path("threats");
+                    ObservableList<String> items = FXCollections.observableArrayList();
+                    if (arr.isArray()) {
+                        for (JsonNode node : arr) {
+                            String ts = node.path("created_at").asText("");
+                            String data = node.path("data").toString();
+                            items.add(String.format("%s — %s", ts, data));
+                        }
+                    }
+                    Platform.runLater(() -> threatItems.setAll(items));
+                }
+            } catch (Exception e) {}
+        }).start();
+    }
+
+    private void loadSystemHealth() {
+        new Thread(() -> {
+            try {
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(BACKEND_URL + "/health"))
+                        .GET()
+                        .build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    JsonNode json = objectMapper.readTree(res.body());
+                    Platform.runLater(() -> {
+                        systemHealthLabel.setText(String.format("API Health: %s — %s", json.path("status").asText("unknown"), json.path("timestamp").asText("")));
+                    });
+                } else {
+                    Platform.runLater(() -> systemHealthLabel.setText("API Health: unavailable"));
+                }
+            } catch (Exception e) {
+                Platform.runLater(() -> systemHealthLabel.setText("API Health: offline"));
+            }
+        }).start();
+    }
+
+    private void revokeSelectedConsent() {
+        if (isUnauthenticated()) return;
+        String selected = consentListView.getSelectionModel().getSelectedItem();
+        if (selected == null || selected.isEmpty()) {
+            showAlert("Revoke Consent", "Select a consent record first.");
+            return;
+        }
+        String deviceId = selected.split(" — ")[0];
+        new Thread(() -> {
+            try {
+                String body = String.format("{\"device_id\":\"%s\"}", deviceId);
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(BACKEND_URL + "/consent/revoke"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    Platform.runLater(() -> {
+                        showAlert("Revoke Consent", "Consent withdrawn for device " + deviceId);
+                        refreshConsentList();
+                        refreshDeviceRegistrations();
+                    });
+                } else {
+                    Platform.runLater(() -> showAlert("Revoke Consent", "Failed to withdraw consent."));
+                }
+            } catch (Exception e) {
+                Platform.runLater(() -> showAlert("Revoke Consent", "Error revoking consent."));
+            }
+        }).start();
+    }
+
+    private void setGeofence() {
+        if (isUnauthenticated()) return;
+        String deviceId = geofenceDeviceField.getText().trim();
+        String lat = geofenceLatField.getText().trim();
+        String lng = geofenceLngField.getText().trim();
+        String radius = geofenceRadiusField.getText().trim();
+        if (deviceId.isEmpty() || lat.isEmpty() || lng.isEmpty() || radius.isEmpty()) {
+            showAlert("Geofence", "All geofence fields are required.");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                String body = String.format("{\"device_id\":\"%s\",\"center_lat\":%s,\"center_lng\":%s,\"radius_meters\":%s}", deviceId, lat, lng, radius);
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(BACKEND_URL + "/geofence"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    Platform.runLater(() -> showAlert("Geofence", "Geofence successfully established."));
+                } else {
+                    Platform.runLater(() -> showAlert("Geofence", "Failed to establish geofence."));
+                }
+            } catch (Exception e) {
+                Platform.runLater(() -> showAlert("Geofence", "Error calling geofence service."));
+            }
+        }).start();
+    }
+
+    private void loadGeofence() {
+        if (isUnauthenticated()) return;
+        String deviceId = geofenceDeviceField.getText().trim();
+        if (deviceId.isEmpty()) {
+            showAlert("Geofence", "Enter a device ID to load the zone.");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                HttpRequest req = requestBuilder(BACKEND_URL + "/geofence/" + deviceId).GET().build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    JsonNode json = objectMapper.readTree(res.body());
+                    Platform.runLater(() -> {
+                        geofenceLatField.setText(json.path("center_lat").asText(""));
+                        geofenceLngField.setText(json.path("center_lng").asText(""));
+                        geofenceRadiusField.setText(json.path("radius_meters").asText(""));
+                        showAlert("Geofence", "Loaded geofence for " + deviceId);
+                    });
+                } else {
+                    Platform.runLater(() -> showAlert("Geofence", "No Active Geofences"));
+                }
+            } catch (Exception e) {
+                Platform.runLater(() -> showAlert("Geofence", "Error loading geofence."));
+            }
+        }).start();
+    }
+
+    private void promptCreateOperator() {
+        Platform.runLater(() -> {
+            TextInputDialog dialog = new TextInputDialog();
+            dialog.setTitle("Provision Operator");
+            dialog.setHeaderText("Create a new operator account");
+            dialog.setContentText("Enter username,email or alias:");
+            dialog.showAndWait().ifPresent(username -> {
+                if (username.trim().isEmpty()) {
+                    showAlert("Operator Provisioning", "Username is required.");
+                } else {
+                    TextInputDialog passwordDialog = new TextInputDialog();
+                    passwordDialog.setTitle("Operator Password");
+                    passwordDialog.setHeaderText("Create a secure password");
+                    passwordDialog.setContentText("Password:");
+                    passwordDialog.showAndWait().ifPresent(password -> {
+                        if (password.trim().isEmpty()) {
+                            showAlert("Operator Provisioning", "Password is required.");
+                        } else {
+                            createOperator(username.trim(), password.trim());
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    private void createOperator(String username, String password) {
+        new Thread(() -> {
+            try {
+                String body = String.format("{\"username\":\"%s\",\"password\":\"%s\"}", username, password);
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(BACKEND_URL + "/auth/register"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 201) {
+                    Platform.runLater(() -> {
+                        showAlert("Operator Provisioning", "Operator created successfully.");
+                        refreshOperators();
+                    });
+                } else {
+                    String bodyText = res.body();
+                    Platform.runLater(() -> showAlert("Operator Provisioning", "Failed to create operator: " + bodyText));
+                }
+            } catch (Exception e) {
+                Platform.runLater(() -> showAlert("Operator Provisioning", "Error creating operator."));
+            }
+        }).start();
+    }
+
+    private void refreshReports() {
+        if (tokenField.getText().trim().isEmpty()) return;
+        new Thread(() -> {
+            try {
+                HttpRequest req = requestBuilder(BACKEND_URL + "/dashboard/summary").GET().build();
+                HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                if (res.statusCode() == 200) {
+                    JsonNode json = objectMapper.readTree(res.body());
+                    int activeDevices = json.path("activeDevices").asInt(0);
+                    int trackingRequests = json.path("trackingRequests").asInt(0);
+                    int alerts = json.path("alerts").asInt(0);
+                    Platform.runLater(() -> {
+                        if (totalDevicesLabel != null) {
+                            totalDevicesLabel.setText("Active Devices: " + activeDevices);
+                        }
+                        if (activeConsentsLabel != null) {
+                            activeConsentsLabel.setText("Tracking Requests: " + trackingRequests);
+                        }
+                        if (recentAlertsLabel != null) {
+                            recentAlertsLabel.setText("Alerts: " + alerts);
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                System.err.println("Dashboard summary refresh failed: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    private VBox createHealthMonitoringSection() {
+        VBox container = createSectionShell("System Health");
+        HBox healthRow = new HBox(12);
+        healthRow.getChildren().addAll(
+            createMetricCard("CPU LOAD", "12%", "#00ff88"),
+            createMetricCard("MEMORY", "2.8GB", "#ffbb33"),
+            createMetricCard("UPTIME", "4h 21m", "#00f2ff")
+        );
+        container.getChildren().addAll(healthRow);
+        sectionViews.put("System Health", container);
+        return container;
+    }
+
+    private VBox createSettingsSection() {
+        VBox container = createSectionShell("Settings");
+        Label summary = new Label("Configure network bridges, gateway ports, and consent lifecycle policies.");
+        summary.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 12px;");
+        systemHealthLabel = new Label("API Health: unknown");
+        systemHealthLabel.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 12px;");
+        Button healthBtn = new Button("Run Health Check");
+        healthBtn.setOnAction(e -> loadSystemHealth());
+        container.getChildren().addAll(summary, systemHealthLabel, healthBtn);
+        sectionViews.put("Settings", container);
+        return container;
+    }
+
+    private VBox createMetricCard(String label, String value, String accent) {
+        VBox card = new VBox(6);
+        card.setPadding(new Insets(14));
+        card.setStyle("-fx-background-color: rgba(0,0,0,0.18); -fx-border-color: " + accent + "; -fx-border-width: 1; -fx-border-radius: 8; -fx-background-radius: 8;");
+        Label title = new Label(label);
+        title.setStyle("-fx-text-fill: #9acddf; -fx-font-size: 11px;");
+        Label val = new Label(value);
+        val.setStyle("-fx-text-fill: " + accent + "; -fx-font-size: 22px; -fx-font-weight: bold;");
+        card.getChildren().addAll(title, val);
+        return card;
+    }
+
+    private <T> TableColumn<DeviceLocation, T> createColumn(String title, String property, int minWidth) {
+        TableColumn<DeviceLocation, T> col = new TableColumn<>(title);
+        col.setCellValueFactory(new PropertyValueFactory<>(property));
+        col.setMinWidth(minWidth);
+        return col;
+    }
+
     private void loginAndFetchToken() {
         String username = usernameField.getText().trim();
         String password = passwordField.getText().trim();
@@ -333,6 +1082,14 @@ public class GPSDashboard extends Application {
                     });
                     // Auto-populate device list
                     refreshAllDevices();
+                    refreshEnrollmentRequests();
+                    refreshConsentList();
+                    refreshAuditLogs();
+                    refreshOperators();
+                    refreshDeviceRegistrations();
+                    refreshAlerts();
+                    refreshThreatIntel();
+                    loadSystemHealth();
                 } else {
                     String err = json.path("error").asText("INVALID_CREDENTIALS");
                     Platform.runLater(() -> {
@@ -380,6 +1137,7 @@ public class GPSDashboard extends Application {
                         // Populate the combo box
                         deviceComboBox.getItems().setAll(newIds);
                         statusLabel.setText("STATUS: Manifest Updated");
+                        refreshReports();
                     });
                 } else if (response.statusCode() == 401) {
                     Platform.runLater(() -> showAlert("Auth Error", "Session expired or invalid token."));
@@ -403,11 +1161,19 @@ public class GPSDashboard extends Application {
                 if (response.statusCode() == 200) {
                     JsonNode node = objectMapper.readTree(response.body());
                     Platform.runLater(() -> {
-                        latitudeLabel.setText("LATITUDE: " + node.path("latitude").asDouble());
-                        longitudeLabel.setText("LONGITUDE: " + node.path("longitude").asDouble());
-                        accuracyLabel.setText("ACCURACY: " + node.path("accuracy").asDouble() + "M");
-                        timestampLabel.setText("SYNC: " + node.path("timestamp").asText());
-                        statusLabel.setText("STATUS: Point Lock Acquired");
+                        if (node.path("latitude").isNull() || node.path("latitude").isMissingNode() || (node.path("latitude").asDouble() == 0.0 && node.path("longitude").asDouble() == 0.0)) {
+                            latitudeLabel.setText("LATITUDE: No Location Updates Available");
+                            longitudeLabel.setText("LONGITUDE: No Location Updates Available");
+                            accuracyLabel.setText("ACCURACY: --");
+                            timestampLabel.setText("SYNC: --");
+                            statusLabel.setText("STATUS: Awaiting GPS Telemetry");
+                        } else {
+                            latitudeLabel.setText("LATITUDE: " + node.path("latitude").asDouble());
+                            longitudeLabel.setText("LONGITUDE: " + node.path("longitude").asDouble());
+                            accuracyLabel.setText("ACCURACY: " + node.path("accuracy").asDouble() + "M");
+                            timestampLabel.setText("SYNC: " + node.path("timestamp").asText());
+                            statusLabel.setText("STATUS: Point Lock Acquired");
+                        }
                         currentDeviceId = id;
                     });
                 }

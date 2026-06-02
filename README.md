@@ -1,5 +1,4 @@
 # MTS CORE TRACKER: MOBILE-TRACKING-SYSTEM
-## Hardened Technical Documentation & Security Operational Manual
 
 ![MTS LOGO](https://img.shields.io/badge/SECURITY-ZERO--TRUST-red?style=for-the-badge)
 ![MTS STATUS](https://img.shields.io/badge/STATUS-PROTECTED-success?style=for-the-badge)
