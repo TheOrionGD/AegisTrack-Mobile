@@ -315,6 +315,8 @@ def get_backend_url():
     if env_backend:
         return env_backend.rstrip('/')
     host = get_public_host()
+    if os.getenv('RENDER') == 'true' or 'onrender.com' in host:
+        return f"https://{host}"
     backend_port = os.getenv('BACKEND_PORT', '5000')
     return f"http://{host}:{backend_port}"
 
