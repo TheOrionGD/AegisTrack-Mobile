@@ -73,6 +73,7 @@ const detLastSeen     = document.getElementById('detLastSeen');
 const detAlerts       = document.getElementById('detAlerts');
 const geofenceStatusText = document.getElementById('geofenceStatusText');
 const forceLocationBtn = document.getElementById('forceLocationBtn');
+const detGoogleMapsLink = document.getElementById('detGoogleMapsLink');
 
 // Interval selector
 const intervalBtns    = Array.from(document.querySelectorAll('.interval-btn'));
@@ -515,6 +516,21 @@ function renderDetailPanel(device) {
     detAccuracy.textContent  = device.accuracy != null ? `±${Math.round(device.accuracy)} m` : '—';
     detLastSeen.textContent  = device.last_updated ? formatRelative(device.last_updated) : 'Never';
     detAlerts.textContent    = device.alert_count_24h || 0;
+
+    // Update Google Maps Pinpoint link dynamically
+    if (detGoogleMapsLink) {
+        if (hasLocation) {
+            detGoogleMapsLink.href = `https://www.google.com/maps/search/?api=1&query=${device.latitude},${device.longitude}`;
+            detGoogleMapsLink.style.opacity = '1';
+            detGoogleMapsLink.style.pointerEvents = 'auto';
+            detGoogleMapsLink.style.cursor = 'pointer';
+        } else {
+            detGoogleMapsLink.href = '#';
+            detGoogleMapsLink.style.opacity = '0.4';
+            detGoogleMapsLink.style.pointerEvents = 'none';
+            detGoogleMapsLink.style.cursor = 'default';
+        }
+    }
 
     // Geofence status
     if (device.geofence) {
