@@ -13,7 +13,7 @@
 [![Compliance](https://img.shields.io/badge/Compliance-GDPR%20%7C%20CCPA-purple.svg?style=for-the-badge)](https://gdpr-info.eu/)
 [![Security Audit](https://img.shields.io/badge/Security-Hardened-red.svg?style=for-the-badge)](https://owasp.org/)
 
-AegisTrack MTS (Mobile Tracking System) is an enterprise-grade administration console and location simulation engine designed for mobile asset tracking, telemetry analysis, and security incident response. Leveraging a lightweight, event-driven architecture, AegisTrack provides operations teams, security desks, and logistics managers with real-time tracking visualization, recovery logs, and automated incident registry management.
+AegisTrack MTS (Mobile Tracking System) is a robust administration console and location simulation engine designed for mobile asset tracking, telemetry analysis, and security incident response. Leveraging a lightweight, event-driven architecture, AegisTrack provides operations teams, security desks, and logistics managers with real-time tracking visualization, recovery logs, and automated incident registry management.
 
 Designed to operate seamlessly on local administrative workstations, AegisTrack MTS integrates a reliable Abstract Window Toolkit (AWT) graphical engine with a high-throughput simulation daemon, allowing operators to track mobile devices, handle lost reports, and access stored location logs safely within an authenticated environment.
 
@@ -45,7 +45,7 @@ Designed to operate seamlessly on local administrative workstations, AegisTrack 
    - [Tracking a Mobile Asset](#tracking-a-mobile-asset)
    - [Filing a Lost Device Recovery Report](#filing-a-lost-device-recovery-report)
    - [Auditing Stored Session Data](#auditing-stored-session-data)
-10. [Enterprise Security & Regulatory Compliance](#10-enterprise-security--regulatory-compliance)
+10. [Security & Regulatory Compliance](#10-security--regulatory-compliance)
     - [Sensitive Data Sanitization](#sensitive-data-sanitization)
     - [Regulatory Compliance (GDPR/CCPA)](#regulatory-compliance-gdprccpa)
     - [API Security Policies](#api-security-policies)
@@ -65,11 +65,11 @@ Designed to operate seamlessly on local administrative workstations, AegisTrack 
 
 ## 1. Executive Summary & Purpose
 
-In modern enterprise environments, maintaining the operational integrity and physical tracking of fleet mobiles, field devices, and logistics hardware is paramount. Organizations face significant overheads when managing lost assets, conducting routine telemetry checks, and validating communication paths. 
+In modern fleet and mobile tracking environments, maintaining the operational integrity and physical tracking of fleet mobiles, field devices, and logistics hardware is paramount. Organizations face significant overheads when managing lost assets, conducting routine telemetry checks, and validating communication paths. 
 
 AegisTrack MTS bridges the gap between field hardware and control station operators by providing a centralized command-line and desktop interface for telemetry simulation and reporting. The primary objectives of the application are:
 * **Securing Device Telemetry:** Providing authenticated operations portals to prevent unauthorized access to device tracking data.
-* **Incident Lifecycle Mitigation:** Standardizing the registration of compromised or lost devices to prevent corporate data leakage.
+* **Incident Lifecycle Mitigation:** Standardizing the registration of compromised or lost devices to prevent sensitive data leakage.
 * **High-Fidelity Telemetry Simulation:** Facilitating testing of logistics dashboards without requiring physical field movement, saving operational hours.
 * **Lightweight Workstation Overhead:** Executing on minimal computing hardware without resource-intensive background services.
 
@@ -216,7 +216,7 @@ AegisTrack-Mobile/
 ├── 2303811710421047.ppt                # Legacy architecture slides & specification decks
 ├── Godfrey.java                        # Primary system entry point, UI code, & simulation engine
 ├── Old_Report.pdf                      # Archival analytics and structural audit documents
-└── README.md                           # Enterprise documentation portal (this file)
+└── README.md                           # Core documentation portal (this file)
 ```
 
 ### Key Workspace Artifacts
@@ -242,10 +242,10 @@ The application stack is chosen for cross-platform portability, high runtime eff
 
 ## 6. API & Telemetry Interface Specification
 
-Although AegisTrack MTS operates as a local administration GUI, it contains interface definitions designed to bind directly with enterprise web servers. This section outlines the mock API interfaces utilized for remote device queries.
+Although AegisTrack MTS operates as a local administration GUI, it contains interface definitions designed to bind directly with backend web servers. This section outlines the mock API interfaces utilized for remote device queries.
 
 ```
-Base URL: https://api.aegistrack-enterprise.internal/v1
+Base URL: https://api.aegistrack.internal/v1
 ```
 
 ### Authentication Header
@@ -594,7 +594,7 @@ Lost Mobile Reports
 
 ---
 
-## 10. Enterprise Security & Regulatory Compliance
+## 10. Security & Regulatory Compliance
 
 AegisTrack MTS implements strict controls to protect critical system assets and location telemetry details.
 
@@ -630,7 +630,7 @@ Location telemetry data is highly sensitive and protected by international regul
 
 ## 11. Scalability & Production Roadmap
 
-For enterprise architectures with thousands of concurrent tracking events, AegisTrack should transition from local, in-memory buffers to a distributed backend structure.
+For large-scale architectures with thousands of concurrent tracking events, AegisTrack should transition from local, in-memory buffers to a distributed backend structure.
 
 ```
                   +--------------------------------+
@@ -880,7 +880,7 @@ Follow structured semantic patterns when committing changes:
 
 ### Pull Request Checklist
 1. Verify the project compiles cleanly using `javac Godfrey.java`.
-2. Format all Java sources to match enterprise style requirements.
+2. Format all Java sources to match standard style requirements.
 3. Test layout scaling to ensure compatibility with standard desktop screens.
 
 ---
@@ -888,7 +888,7 @@ Follow structured semantic patterns when committing changes:
 ## 16. Licensing & Legal Information
 
 ```text
-Copyright 2026 AegisTrack Enterprise Solutions.
+Copyright 2026 AegisTrack Solutions.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
